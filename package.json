@@ -1,0 +1,32 @@
+{
+  "name": "nmap-atlas",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "nmap-atlas": "bin/nmap-atlas.mjs"
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host",
+    "start": "npm run build && node bin/nmap-atlas.mjs",
+    "serve": "node bin/nmap-atlas.mjs",
+    "cli": "node bin/nmap-atlas.mjs",
+    "binary": "npm run build && bun build bin/nmap-atlas.mjs --compile --asset ./dist --asset-naming \"[name].[ext]\" --outfile nmap-atlas"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^1.1.4",
+    "@xyflow/react": "^12.3.0",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^5.2.0",
+    "typescript": "~5.6.3",
+    "vite": "^7.3.8"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+nmap-atlas
+scans/
+/casa.*
+*.tsbuildinfo
+*.local
+.DS_Store
