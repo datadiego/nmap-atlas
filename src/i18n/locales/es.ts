@@ -15,6 +15,7 @@ export const es = {
   'app.renameInvalid': 'Nombre de escaneo no válido.',
   'app.renameMissing': 'El escaneo indicado no existe.',
   'app.renameExists': 'Ya existe un escaneo con ese nombre.',
+  'common.scrollTop': 'Volver arriba',
 
   'tabs.savedScans': 'Escaneos realizados',
   'tabs.scan': 'Escanear',

@@ -6,6 +6,7 @@ import { countOpenPorts } from '../graph/subnets';
 import { hostLabel } from '../parser/nmapXml';
 import { useI18n } from '../i18n/I18nProvider';
 import HostDetails from './HostDetails';
+import ScrollToTop from './ScrollToTop';
 import { stateKeys } from './portState';
 
 interface Props {
@@ -273,6 +274,7 @@ export default function HostList({
           );
         })}
       </div>
+      <ScrollToTop targetRef={rootRef} />
     </div>
   );
 }

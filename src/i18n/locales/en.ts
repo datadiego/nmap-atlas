@@ -17,6 +17,7 @@ export const en: Translation = {
   'app.renameInvalid': 'Invalid scan name.',
   'app.renameMissing': 'The specified scan does not exist.',
   'app.renameExists': 'A scan with that name already exists.',
+  'common.scrollTop': 'Back to top',
 
   'tabs.savedScans': 'Saved scans',
   'tabs.scan': 'Scan',

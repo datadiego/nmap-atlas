@@ -4,6 +4,7 @@ import type { TFunction } from '../i18n';
 import { useI18n } from '../i18n/I18nProvider';
 import { hostLabel } from '../parser/nmapXml';
 import { screenshotUrl } from '../screenshots';
+import ScrollToTop from './ScrollToTop';
 
 export interface CaptureItem {
   key: string;
@@ -129,6 +130,7 @@ export default function ScreenshotGrid({ captures, scrollTo, onScrolled, onOpenH
           ))}
         </div>
       </div>
+      <ScrollToTop targetRef={rootRef} />
     </div>
   );
 }
