@@ -88,19 +88,19 @@ export default function UploadView({ onLoad }: Props) {
         <div className="tabs" role="tablist">
           <button
             role="tab"
-            aria-selected={mode === 'file'}
-            className={mode === 'file' ? 'active' : ''}
-            onClick={() => { setMode('file'); setError(''); }}
-          >
-            <FolderOpen size={16} /> {t('tabs.savedScans')}
-          </button>
-          <button
-            role="tab"
             aria-selected={mode === 'scan'}
             className={mode === 'scan' ? 'active' : ''}
             onClick={() => { setMode('scan'); setError(''); }}
           >
             <Terminal size={16} /> {t('tabs.scan')}
+          </button>
+          <button
+            role="tab"
+            aria-selected={mode === 'file'}
+            className={mode === 'file' ? 'active' : ''}
+            onClick={() => { setMode('file'); setError(''); }}
+          >
+            <FolderOpen size={16} /> {t('tabs.savedScans')}
           </button>
           <button
             role="tab"
