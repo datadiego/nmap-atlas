@@ -325,22 +325,22 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .tabs button:hover { color: var(--text-soft); }
 .tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
 .upload-panel {
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding-top: 18px;
+  gap: 12px;
+  padding-top: 14px;
 }
 .dropzone {
-  flex: 1;
+  flex: 0 0 auto;
   margin: 0;
-  min-height: 250px;
+  min-height: 118px;
+  padding: 14px;
   border: 1.5px dashed var(--border-hover);
   border-radius: 12px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 10px;
+  gap: 6px;
   background: rgba(var(--surface-rgb), .5);
   transition: border-color .18s, background .18s, transform .18s;
   outline: none;
@@ -351,15 +351,15 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   transform: translateY(-1px);
 }
 .drop-icon {
-  width: 66px; height: 66px; border-radius: 16px;
+  width: 40px; height: 40px; border-radius: 11px;
   display: grid; place-items: center;
   background: var(--surface-2); color: var(--accent);
-  border: 1px solid var(--border-strong); margin-bottom: 4px;
+  border: 1px solid var(--border-strong);
 }
-.dropzone h3 { margin: 0; font-size: 17px; }
-.dropzone p { margin: 0; color: var(--muted); font-size: 13px; }
-.drop-hint { font-size: 11px; color: var(--dim); margin-top: 6px; }
-.saved-scans { border-top: 1px solid var(--border-soft); padding-top: 13px; }
+.dropzone h3 { margin: 0; font-size: 14px; }
+.dropzone p { margin: 0; color: var(--muted); font-size: 12px; }
+.drop-hint { font-size: 10px; color: var(--dim); margin-top: 2px; }
+.saved-scans { border-top: 1px solid var(--border-soft); padding-top: 10px; }
 .saved-scans-head {
   display: flex; align-items: center; gap: 7px;
   font-size: 11px; color: var(--muted); margin-bottom: 8px;
@@ -367,9 +367,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .saved-scans-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 5px;
-  max-height: 190px;
-  overflow-y: auto;
+  gap: 6px;
 }
 .saved-scans-list button {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;

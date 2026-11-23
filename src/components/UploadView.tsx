@@ -124,7 +124,7 @@ export default function UploadView({ onLoad }: Props) {
               tabIndex={0}
               onKeyDown={(event) => { if (event.key === 'Enter') inputRef.current?.click(); }}
             >
-              <div className="drop-icon"><FileCode2 size={34} /></div>
+              <div className="drop-icon"><FileCode2 size={22} /></div>
               <h3>{t('upload.dropTitle')}</h3>
               <p>{t('upload.dropSubtitle')}</p>
               <span className="drop-hint">{t('upload.dropFormats')}</span>
@@ -143,7 +143,7 @@ export default function UploadView({ onLoad }: Props) {
                   <FolderOpen size={14} /> {t('upload.savedScans', { count: scans.length })}
                 </div>
                 <div className="saved-scans-list">
-                  {scans.slice(0, 12).map((scan) => {
+                  {scans.map((scan) => {
                     const mtime = new Date(scan.mtime);
                     const validMtime = !Number.isNaN(mtime.getTime());
                     return (
