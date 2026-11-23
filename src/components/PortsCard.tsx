@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { stateColor } from '../graph/model';
 import { hostLabel } from '../parser/nmapXml';
 import { useI18n } from '../i18n/I18nProvider';
+import HostDetails from './HostDetails';
 import type { TranslationKey } from '../i18n';
 import type { NmapHost, NmapPort } from '../types';
 
@@ -74,6 +75,7 @@ export default function PortsCard({ hosts, query, onClose }: Props) {
         {hosts.map((host) => (
           <div className="ports-card-host" key={host.key}>
             {hosts.length > 1 && <div className="ports-card-hostname">{hostLabel(host, t)}</div>}
+            <HostDetails host={host} open={hosts.length === 1} />
 
             {[...host.ports]
               .sort((a, b) => Number(a.portId) - Number(b.portId))
