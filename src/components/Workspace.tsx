@@ -33,9 +33,10 @@ const nodeTypes: NodeTypes = { entity: EntityNodeView };
 
 interface Props {
   scan: NmapScan;
+  onNotesChange: (hostKey: string, notes: string) => void;
 }
 
-function WorkspaceInner({ scan }: Props) {
+function WorkspaceInner({ scan, onNotesChange }: Props) {
   const { t } = useI18n();
   const theme = useTheme();
   const model = useMemo(() => buildGraph(scan, t), [scan, t]);
@@ -50,6 +51,20 @@ function WorkspaceInner({ scan }: Props) {
   const [baseNodes, setBaseNodes] = useState<EntityNode[]>(() =>
     layoutGraph(model, initialLayout, { onlyWithPorts: initialOnlyWithPorts }),
   );
+
+  // El layout conserva posiciones arrastradas, pero los datos de cada nodo
+  // deben seguir al host (por ejemplo cuando cambian sus notas).
+  useEffect(() => {
+    const freshById = new Map(model.nodes.map((node) => [node.id, node]));
+    setBaseNodes((current) =>
+      current.map((node) => {
+        const fresh = freshById.get(node.id);
+        if (!fresh) return node;
+        return { ...node, data: { ...fresh.data, dimmed: node.data.dimmed } };
+      }),
+    );
+  }, [model]);
+
   // Los puertos no son nodos: se abren en una ficha flotante dentro del mapa.
   const [activeHost, setActiveHost] = useState<string | null>(null);
   const [showAllPorts, setShowAllPorts] = useState(false);
@@ -269,7 +284,12 @@ function WorkspaceInner({ scan }: Props) {
 
             {cardHosts.length > 0 && (
               <Panel position="top-right" className="ports-card-panel">
-                <PortsCard hosts={cardHosts} query={query} onClose={closeCard} />
+                <PortsCard
+                  hosts={cardHosts}
+                  query={query}
+                  onClose={closeCard}
+                  onNotesChange={onNotesChange}
+                />
               </Panel>
             )}
           </ReactFlow>

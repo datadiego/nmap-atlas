@@ -34,6 +34,7 @@ export interface GraphNodeData extends Record<string, unknown> {
   badge: string;
   state: string;
   detail: string;
+  notes: string;
   dimmed: boolean;
   entity: NodeEntity;
 }
@@ -51,7 +52,7 @@ export interface GraphModel {
 export const NODE_SIZES: Record<NodeKind, { width: number; height: number }> = {
   scan: { width: 250, height: 104 },
   subnet: { width: 220, height: 86 },
-  host: { width: 234, height: 110 },
+  host: { width: 234, height: 128 },
   port: { width: 236, height: 82 },
   extra: { width: 236, height: 76 },
   group: { width: 1, height: 1 },
@@ -82,12 +83,13 @@ function makeNode(
   state: string,
   detail: string,
   entity: NodeEntity,
+  notes = '',
 ): EntityNode {
   return {
     id,
     type: 'entity',
     position: { x: 0, y: 0 },
-    data: { kind, id, label, subtitle, badge, state, detail, dimmed: false, entity },
+    data: { kind, id, label, subtitle, badge, state, detail, notes, dimmed: false, entity },
   };
 }
 
@@ -177,6 +179,7 @@ export function buildGraph(scan: NmapScan, t: TFunction = tGlobal): GraphModel {
           .filter(Boolean)
           .join(' · '),
         { type: 'host', host },
+        host.notes,
       ),
     );
     const subnetId = `subnet:${subnetOf(host, t)}`;
@@ -267,8 +270,10 @@ export function applyView(model: GraphModel, options: ViewOptions, sourceNodes?:
 
   const matches = (node: EntityNode): boolean => {
     if (!query) return true;
-    const { label, subtitle, detail, badge } = node.data;
-    return [label, subtitle, detail, badge].some((value) => value.toLowerCase().includes(query));
+    const { label, subtitle, detail, badge, notes } = node.data;
+    return [label, subtitle, detail, badge, notes].some((value) =>
+      value.toLowerCase().includes(query),
+    );
   };
 
   // Buscamos también en los puertos (que viven en la ficha, no en el grafo):

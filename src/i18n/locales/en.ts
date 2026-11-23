@@ -254,6 +254,8 @@ export const en: Translation = {
   'ports.extra': '+ {count} {state} ports',
 
   'host.details': 'Host details',
+  'host.notes': 'Notes',
+  'host.notesPlaceholder': 'Add a note about this host…',
   'host.state': 'State',
   'host.reason': 'Reason',
   'host.addresses': 'Addresses',

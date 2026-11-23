@@ -180,6 +180,7 @@ function parseHost(el: Element, index: number): NmapHost {
         }
       : null,
     scripts: parseScripts(child(el, 'hostscript')),
+    notes: '',
   };
 }
 

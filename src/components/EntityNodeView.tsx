@@ -14,12 +14,18 @@ const icons: Record<NodeKind, typeof Server> = {
   group: Boxes,
 };
 
+const NOTE_PREVIEW_CHARS = 72;
+
 export default function EntityNodeView({ data, selected }: NodeProps<EntityNodeType>) {
   const { t } = useI18n();
   const { activeHost, childrenByHost, toggleHost } = useContext(GraphActionsContext);
   const Icon = icons[data.kind];
   const childCount = data.entity.type === 'host' ? (childrenByHost[data.id]?.length ?? 0) : 0;
   const expanded = activeHost === data.id;
+  const note = (data.notes || '').replace(/\s+/g, ' ').trim();
+  const notePreview = note.length > NOTE_PREVIEW_CHARS
+    ? `${note.slice(0, NOTE_PREVIEW_CHARS).trimEnd()}…`
+    : note;
 
   if (data.entity.type === 'group') {
     return (
@@ -47,6 +53,9 @@ export default function EntityNodeView({ data, selected }: NodeProps<EntityNodeT
           {data.badge && <span className={`node-badge state-${data.state || 'none'}`}>{data.badge}</span>}
         </div>
         <span className="node-subtitle" title={data.subtitle}>{data.subtitle}</span>
+        {data.kind === 'host' && note && (
+          <span className="node-notes" title={note}>{notePreview}</span>
+        )}
       </div>
       {childCount > 0 && (
         <button

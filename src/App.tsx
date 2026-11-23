@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, Radar, RotateCcw, X } from 'lucide-react';
 import type { NmapScan } from './types';
 import { parseNmapXml } from './parser/nmapXml';
+import { forgetHostNotes, hostNotesKey, loadHostNotes, saveHostNotes } from './notes';
 import { useI18n } from './i18n/I18nProvider';
 import RenameScan from './components/RenameScan';
 import UploadView from './components/UploadView';
@@ -24,6 +25,11 @@ export default function App() {
 
   const loadXml = (xml: string, filename: string, extraWarnings: string[] = []) => {
     const parsed = parseNmapXml(xml, filename, t);
+    const savedNotes = loadHostNotes();
+    parsed.hosts = parsed.hosts.map((host) => ({
+      ...host,
+      notes: savedNotes[hostNotesKey(filename, host.key)] ?? '',
+    }));
     setScan({ ...parsed, warnings: [...extraWarnings, ...parsed.warnings] });
     setHideWarning(false);
     setRenamingScan(false);
@@ -31,7 +37,36 @@ export default function App() {
   };
 
   const renameSavedScan = (name: string) => {
-    setScan((current) => (current ? { ...current, filename: name } : current));
+    setScan((current) => {
+      if (!current || current.filename === name) return current;
+      const savedNotes = loadHostNotes();
+      current.hosts.forEach((host) => {
+        const oldKey = hostNotesKey(current.filename, host.key);
+        const value = savedNotes[oldKey];
+        if (value === undefined) return;
+        delete savedNotes[oldKey];
+        savedNotes[hostNotesKey(name, host.key)] = value;
+      });
+      saveHostNotes(savedNotes);
+      return { ...current, filename: name };
+    });
+  };
+
+  const updateHostNotes = (hostKey: string, notes: string) => {
+    setScan((current) => {
+      if (!current) return current;
+      const savedNotes = loadHostNotes();
+      const key = hostNotesKey(current.filename, hostKey);
+      if (notes.trim()) savedNotes[key] = notes;
+      else delete savedNotes[key];
+      saveHostNotes(savedNotes);
+      return {
+        ...current,
+        hosts: current.hosts.map((host) =>
+          host.key === hostKey ? { ...host, notes } : host,
+        ),
+      };
+    });
   };
 
   const openPorts = scan
@@ -99,9 +134,14 @@ export default function App() {
       ) : null}
 
       {scan ? (
-        <Workspace key={`${viewKey}:${locale}`} scan={scan} />
+        <Workspace key={`${viewKey}:${locale}`} scan={scan} onNotesChange={updateHostNotes} />
       ) : (
-        <UploadView key={uploadKey} onLoad={loadXml} />
+        <UploadView
+          key={uploadKey}
+          onLoad={loadXml}
+          onDeleteSaved={(name) => forgetHostNotes([name])}
+          onDeleteAllSaved={forgetHostNotes}
+        />
       )}
     </div>
   );

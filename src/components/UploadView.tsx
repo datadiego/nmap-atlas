@@ -7,9 +7,11 @@ import ScanForm from './ScanForm';
 
 interface Props {
   onLoad: (xml: string, filename: string, warnings?: string[]) => void;
+  onDeleteSaved?: (name: string) => void;
+  onDeleteAllSaved?: (names: string[]) => void;
 }
 
-export default function UploadView({ onLoad }: Props) {
+export default function UploadView({ onLoad, onDeleteSaved, onDeleteAllSaved }: Props) {
   const { t, formatNumber, formatDateTime } = useI18n();
   const [mode, setMode] = useState<'file' | 'scan' | 'options'>('scan');
   const [apiStatus, setApiStatus] = useState<ApiStatus | null | undefined>(undefined);
@@ -90,6 +92,7 @@ export default function UploadView({ onLoad }: Props) {
         throw new Error(message || t('upload.deleteError'));
       }
       setScans((current) => current.filter((scan) => scan.name !== name));
+      onDeleteSaved?.(name);
       setConfirmingDelete(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('upload.deleteError'));
@@ -105,6 +108,7 @@ export default function UploadView({ onLoad }: Props) {
       const response = await fetch('/api/scans/delete-all', { method: 'POST' });
       const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(data.error || t('upload.deleteAllError'));
+      onDeleteAllSaved?.(scans.map((scan) => scan.name));
       setScans([]);
       setConfirmingDelete(null);
       setConfirmingDeleteAll(false);

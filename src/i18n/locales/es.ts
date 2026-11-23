@@ -252,6 +252,8 @@ export const es = {
   'ports.extra': '+ {count} puertos {state}',
 
   'host.details': 'Detalles del host',
+  'host.notes': 'Notas',
+  'host.notesPlaceholder': 'Añade una nota sobre este host…',
   'host.state': 'Estado',
   'host.reason': 'Motivo',
   'host.addresses': 'Direcciones',

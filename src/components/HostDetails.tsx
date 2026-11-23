@@ -5,6 +5,7 @@ import type { NmapHost } from '../types';
 interface Props {
   host: NmapHost;
   open?: boolean;
+  onNotesChange?: (notes: string) => void;
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -20,31 +21,31 @@ function cpeUrl(cpe: string): string {
   return `https://nvd.nist.gov/vuln/search/results?query=${encodeURIComponent(cpe)}&search_type=all`;
 }
 
-export default function HostDetails({ host, open = false }: Props) {
+export default function HostDetails({ host, open = false, onNotesChange }: Props) {
   const { t, formatNumber } = useI18n();
   const osSummary = host.os[0]?.name || host.osClasses[0]?.osFamily || host.osClasses[0]?.vendor || '';
-  const hasDetails = Boolean(
-    host.state ||
-    host.reason ||
-    host.addresses.length ||
-    host.hostnames.length ||
-    host.os.length ||
-    host.osClasses.length ||
-    host.uptime ||
-    host.distance ||
-    host.times ||
-    host.scripts.length,
-  );
-
-  if (!hasDetails) return null;
 
   return (
     <details className="host-details" open={open}>
       <summary>
         <span>{t('host.details')}</span>
+        {host.notes && <span className="host-details-note-dot" title={t('host.notes')} />}
         {osSummary && <span className="host-details-os">{osSummary}</span>}
       </summary>
       <div className="host-details-body">
+        <Row label={t('host.notes')}>
+          <textarea
+            className="host-notes-input nodrag"
+            value={host.notes}
+            placeholder={t('host.notesPlaceholder')}
+            rows={2}
+            maxLength={500}
+            onChange={(event) => onNotesChange?.(event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+          />
+        </Row>
+
         {(host.state || host.reason) && (
           <Row label={t('host.state')}>
             {host.state && <code className="host-detail-chip">{host.state}</code>}

@@ -97,6 +97,7 @@ export interface NmapHost {
   distance: string;
   times: { srtt: string; rttvar: string; to: string } | null;
   scripts: NmapScript[];
+  notes: string;
 }
 
 export interface RunStats {
