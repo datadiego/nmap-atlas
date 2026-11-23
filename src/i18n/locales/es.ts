@@ -186,8 +186,6 @@ export const es = {
   'scan.warningExit': 'nmap terminó con código {code}; el XML puede estar incompleto.',
   'scan.run': 'Ejecutar y analizar',
   'scan.running': 'Escaneando…',
-  'scan.limit': 'límite {label}',
-  'scan.defaultShort': 'por defecto',
   'scan.cancel': 'Cancelar escaneo',
   'scan.cancelling': 'Cancelando…',
   'scan.progressHosts': 'Analizando hosts',

@@ -382,16 +382,19 @@ const initialProfileFor = (remember: RememberSettings, saved: Partial<Remembered
 const newScanId = () =>
   globalThis.crypto?.randomUUID?.() ?? `scan-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-const formatElapsed = (ms: number) => {
-  const total = Math.floor(ms / 1000);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  return hours
-    ? `${hours}h ${minutes}m ${seconds}s`
-    : minutes
-      ? `${minutes}m ${seconds}s`
-      : `${seconds}s`;
+// El log crece dentro de su propio contenedor; bajamos el contenedor con scroll
+// (no solo el elemento) para llegar al fondo real de la vista.
+const scrollToBottomOfScrollParent = (element: HTMLElement | null) => {
+  let node = element?.parentElement ?? null;
+  while (node) {
+    const overflowY = window.getComputedStyle(node).overflowY;
+    if (/(auto|scroll|overlay)/.test(overflowY) && node.scrollHeight > node.clientHeight + 1) {
+      node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
+      return;
+    }
+    node = node.parentElement;
+  }
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
 };
 
 const formatBytes = (bytes: number) => {
@@ -447,7 +450,6 @@ export default function ScanForm({ status, onLoad }: Props) {
       : DEFAULT_FORM_VALUES.hostTimeout,
   );
   const [scanId, setScanId] = useState<string | null>(null);
-  const [elapsedMs, setElapsedMs] = useState(0);
   const [progress, setProgress] = useState<ScanProgress>({
     bytes: 0,
     hostHints: 0,
@@ -508,16 +510,6 @@ export default function ScanForm({ status, onLoad }: Props) {
   useEffect(() => { setCommand(autoCommand); }, [autoCommand]);
 
   useEffect(() => {
-    if (!busy) {
-      setElapsedMs(0);
-      return;
-    }
-    const start = Date.now();
-    const timer = window.setInterval(() => setElapsedMs(Date.now() - start), 1000);
-    return () => window.clearInterval(timer);
-  }, [busy]);
-
-  useEffect(() => {
     if (!busy || !scanId) return;
     let active = true;
     const poll = async () => {
@@ -552,8 +544,18 @@ export default function ScanForm({ status, onLoad }: Props) {
 
   useEffect(() => {
     const element = logRef.current;
-    if (element) element.scrollTop = element.scrollHeight;
+    if (!element) return;
+    element.scrollTop = element.scrollHeight;
+    scrollToBottomOfScrollParent(element);
   }, [progress.log.length]);
+
+  useEffect(() => {
+    if (!busy) return;
+    const frame = window.requestAnimationFrame(() => {
+      scrollToBottomOfScrollParent(logRef.current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [busy]);
 
   useEffect(() => {
     if (!tooltip) return;
@@ -1004,24 +1006,14 @@ export default function ScanForm({ status, onLoad }: Props) {
           {busy ? t('scan.running') : t('scan.run')}
         </button>
         {busy && (
-          <>
-            <span className="scan-elapsed">
-              {formatElapsed(elapsedMs)} · {t('scan.limit', {
-                label: (() => {
-                  const item = TIMEOUTS.find((entry) => entry.value === timeoutMs);
-                  return item?.labelKey ? t(item.labelKey) : (item?.label ?? t('scan.defaultShort'));
-                })(),
-              })}
-            </span>
-            <button
-              type="button"
-              className="btn btn-ghost scan-cancel"
-              onClick={() => void cancelScan()}
-              disabled={cancelling}
-            >
-              <X size={15} /> {cancelling ? t('scan.cancelling') : t('scan.cancel')}
-            </button>
-          </>
+          <button
+            type="button"
+            className="btn btn-ghost scan-cancel"
+            onClick={() => void cancelScan()}
+            disabled={cancelling}
+          >
+            <X size={15} /> {cancelling ? t('scan.cancelling') : t('scan.cancel')}
+          </button>
         )}
       </div>
 

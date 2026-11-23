@@ -188,8 +188,6 @@ export const en: Translation = {
   'scan.warningExit': 'nmap exited with code {code}; the XML may be incomplete.',
   'scan.run': 'Run and analyze',
   'scan.running': 'Scanning…',
-  'scan.limit': 'limit {label}',
-  'scan.defaultShort': 'default',
   'scan.cancel': 'Cancel scan',
   'scan.cancelling': 'Cancelling…',
   'scan.progressHosts': 'Scanning hosts',
