@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export class ValidationError extends Error {}
@@ -577,6 +577,31 @@ export async function renameScan(scansDir, from, to) {
   if (await fileExists(destination)) throw new ValidationError('Ya existe un escaneo con ese nombre.');
   await rename(source, destination);
   return to;
+}
+
+export async function deleteScan(scansDir, name) {
+  if (!SAFE_NAME.test(name)) throw new ValidationError('Nombre de escaneo no válido.');
+  try {
+    await unlink(path.join(scansDir, name));
+  } catch (error) {
+    if (error?.code === 'ENOENT') throw new ValidationError('El escaneo indicado no existe.');
+    throw error;
+  }
+  return name;
+}
+
+export async function deleteAllScans(scansDir) {
+  const scans = await listScans(scansDir);
+  await Promise.all(
+    scans.map(async (scan) => {
+      try {
+        await unlink(path.join(scansDir, scan.name));
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    }),
+  );
+  return scans.length;
 }
 
 export function validateScanName(name) {

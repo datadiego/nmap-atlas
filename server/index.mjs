@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { ValidationError, cancelScan, getNmapVersion, listScans, readScan, renameScan, runNmap } from './nmap.mjs';
+import { ValidationError, cancelScan, deleteAllScans, deleteScan, getNmapVersion, listScans, readScan, renameScan, runNmap } from './nmap.mjs';
 import { calculateRange, getIpcCalcVersion } from './ipcalc.mjs';
 import { serveStatic } from './static.mjs';
 
@@ -70,6 +70,15 @@ export function createServer(config) {
       if (pathname === '/api/scans/rename' && req.method === 'POST') {
         const { from, to } = await readJson(req);
         return sendJson(res, 200, { name: await renameScan(config.scansDir, from, to) });
+      }
+
+      if (pathname === '/api/scans/delete' && req.method === 'POST') {
+        const { name } = await readJson(req);
+        return sendJson(res, 200, { name: await deleteScan(config.scansDir, name) });
+      }
+
+      if (pathname === '/api/scans/delete-all' && req.method === 'POST') {
+        return sendJson(res, 200, { deleted: await deleteAllScans(config.scansDir) });
       }
 
       if (pathname.startsWith('/api/scans/') && req.method === 'GET') {

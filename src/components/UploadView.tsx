@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
-import { AlertCircle, FileCode2, FolderOpen, LoaderCircle, Settings2, Terminal } from 'lucide-react';
+import { AlertCircle, Check, FileCode2, FolderOpen, LoaderCircle, Settings2, Terminal, Trash2, X } from 'lucide-react';
 import type { ApiStatus, SavedScan } from '../types';
 import { useI18n } from '../i18n/I18nProvider';
 import OptionsPanel from './OptionsPanel';
@@ -15,6 +15,10 @@ export default function UploadView({ onLoad }: Props) {
   const [apiStatus, setApiStatus] = useState<ApiStatus | null | undefined>(undefined);
   const [scans, setScans] = useState<SavedScan[]>([]);
   const [loadingSaved, setLoadingSaved] = useState<string | null>(null);
+  const [deletingSaved, setDeletingSaved] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [confirmingDeleteAll, setConfirmingDeleteAll] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +70,48 @@ export default function UploadView({ onLoad }: Props) {
       setError(err instanceof Error ? err.message : t('upload.openError'));
     } finally {
       setLoadingSaved(null);
+    }
+  };
+
+  const deleteSaved = async (name: string) => {
+    setError('');
+    setDeletingSaved(name);
+    try {
+      const response = await fetch('/api/scans/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        const message = data.error ?? '';
+        if (message.includes('no existe')) throw new Error(t('upload.deleteMissing'));
+        if (message.includes('no válido')) throw new Error(t('upload.deleteInvalid'));
+        throw new Error(message || t('upload.deleteError'));
+      }
+      setScans((current) => current.filter((scan) => scan.name !== name));
+      setConfirmingDelete(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('upload.deleteError'));
+    } finally {
+      setDeletingSaved(null);
+    }
+  };
+
+  const deleteAllSaved = async () => {
+    setError('');
+    setDeletingAll(true);
+    try {
+      const response = await fetch('/api/scans/delete-all', { method: 'POST' });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(data.error || t('upload.deleteAllError'));
+      setScans([]);
+      setConfirmingDelete(null);
+      setConfirmingDeleteAll(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('upload.deleteAllError'));
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -141,22 +187,101 @@ export default function UploadView({ onLoad }: Props) {
               <div className="saved-scans">
                 <div className="saved-scans-head">
                   <FolderOpen size={14} /> {t('upload.savedScans', { count: scans.length })}
+                  <div className="saved-scans-head-actions">
+                    {confirmingDeleteAll ? (
+                      <>
+                        <button
+                          className={`saved-scans-head-action confirm${deletingAll ? ' busy' : ''}`}
+                          title={t('upload.deleteAllConfirm')}
+                          aria-label={t('upload.deleteAllConfirm')}
+                          disabled={deletingAll}
+                          onClick={() => void deleteAllSaved()}
+                        >
+                          {deletingAll ? <LoaderCircle size={12} className="spin" /> : <Check size={12} />}
+                          <span>{t('upload.deleteAllConfirm')}</span>
+                        </button>
+                        <button
+                          className="saved-scans-head-action"
+                          title={t('upload.deleteCancel')}
+                          aria-label={t('upload.deleteCancel')}
+                          disabled={deletingAll}
+                          onClick={() => setConfirmingDeleteAll(false)}
+                        >
+                          <X size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="saved-scans-head-action"
+                        title={t('upload.deleteAllTitle')}
+                        aria-label={t('upload.deleteAllTitle')}
+                        disabled={deletingAll}
+                        onClick={() => setConfirmingDeleteAll(true)}
+                      >
+                        <Trash2 size={12} />
+                        <span>{t('upload.deleteAllShort')}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="saved-scans-list">
                   {scans.map((scan) => {
                     const mtime = new Date(scan.mtime);
                     const validMtime = !Number.isNaN(mtime.getTime());
+                    const confirming = confirmingDelete === scan.name;
                     return (
-                      <button key={scan.name} onClick={() => void openSaved(scan.name)}>
-                        <span className="saved-name">
-                          {loadingSaved === scan.name && <LoaderCircle size={11} className="spin" />}
-                          {scan.name}
-                        </span>
-                        <span className="saved-meta">
-                          {formatSize(scan.size)}
-                          {validMtime && ` · ${formatDateTime(mtime, { dateStyle: 'medium', timeStyle: 'short' })}`}
-                        </span>
-                      </button>
+                      <div className="saved-scan-row" key={scan.name}>
+                        <button
+                          className="saved-scan-open"
+                          onClick={() => void openSaved(scan.name)}
+                          disabled={deletingAll || deletingSaved === scan.name}
+                        >
+                          <span className="saved-name">
+                            {loadingSaved === scan.name && <LoaderCircle size={11} className="spin" />}
+                            {scan.name}
+                          </span>
+                          <span className="saved-meta">
+                            {formatSize(scan.size)}
+                            {validMtime && ` · ${formatDateTime(mtime, { dateStyle: 'medium', timeStyle: 'short' })}`}
+                          </span>
+                        </button>
+                        <div className="saved-scan-actions">
+                          {confirming ? (
+                            <>
+                              <button
+                                className={`saved-scan-action confirm${deletingSaved === scan.name ? ' busy' : ''}`}
+                                title={t('upload.deleteConfirm')}
+                                aria-label={t('upload.deleteConfirm')}
+                                disabled={deletingAll || deletingSaved === scan.name}
+                                onClick={() => void deleteSaved(scan.name)}
+                              >
+                                {deletingSaved === scan.name
+                                  ? <LoaderCircle size={12} className="spin" />
+                                  : <Check size={12} />}
+                              </button>
+                              <button
+                                className="saved-scan-action"
+                                title={t('upload.deleteCancel')}
+                                aria-label={t('upload.deleteCancel')}
+                                disabled={deletingAll || deletingSaved === scan.name}
+                                onClick={() => setConfirmingDelete(null)}
+                              >
+                                <X size={12} />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="saved-scan-action"
+                              title={t('upload.deleteTitle')}
+                              aria-label={t('upload.deleteTitle')}
+                              disabled={deletingAll || deletingSaved === scan.name}
+                              onClick={() => setConfirmingDelete(scan.name)}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
