@@ -852,6 +852,85 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 }
 
 .graph-area { flex: 1; position: relative; min-width: 0; padding-top: 58px; }
+
+/* ---------- Lista de hosts (HTML, sin React Flow) ---------- */
+.host-list {
+  flex: 1; min-width: 0; min-height: 0;
+  padding: 70px 18px 28px;
+  overflow-y: auto;
+}
+.host-list::-webkit-scrollbar { width: 9px; }
+.host-list::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
+.host-list-inner { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.host-list-empty {
+  padding: 28px; text-align: center; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--border); border-radius: 10px;
+}
+.host-list-subnet {
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.host-list-subnet-head {
+  width: 100%; display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px; border: none;
+  background: var(--surface-2); text-align: left;
+}
+.host-list-subnet-head:hover { background: var(--surface-3); }
+.host-list-subnet-head strong {
+  font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text);
+}
+.host-list-subnet-meta { font-size: 10.5px; color: var(--muted); }
+.host-list-caret { flex: 0 0 auto; color: var(--dim); transition: transform .14s ease-out; }
+.host-list-caret.open { transform: rotate(90deg); color: var(--accent); }
+.host-list-item {
+  border-top: 1px solid var(--border-soft);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
+}
+.host-list-item.match { box-shadow: inset 2px 0 0 var(--accent); background: rgba(var(--accent-rgb), .07); }
+.host-list-row {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border: none; background: none; text-align: left;
+}
+.host-list-row:hover { background: rgba(var(--accent-rgb), .06); }
+.host-list-dot {
+  width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--dim);
+}
+.host-list-dot.up { background: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .14); }
+.host-list-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.host-list-main strong {
+  font-size: 12px; color: var(--text-strong);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.host-list-main > span {
+  font-size: 10.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.host-list-note {
+  max-width: 260px; font-size: 10px; color: var(--amber);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.host-list-badge {
+  padding: 2px 7px; border-radius: 5px;
+  background: var(--surface-3); font-size: 10px; white-space: nowrap;
+}
+.host-list-detail { padding: 0 12px 12px 36px; display: flex; flex-direction: column; gap: 8px; }
+.host-list-ports { display: flex; flex-direction: column; gap: 4px; }
+.host-list-port {
+  display: grid; grid-template-columns: 72px 70px minmax(0, 1fr);
+  align-items: center; gap: 6px; padding: 5px 7px;
+  border-radius: 6px; background: rgba(255, 255, 255, .02);
+}
+.host-list-port-service {
+  min-width: 0; font-size: 10.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.host-list-detail .host-details { margin: 0; }
+@media (max-width: 900px) {
+  .host-list-note { display: none; }
+  .host-list-subnet-meta { font-size: 9.5px; }
+}
 .react-flow { background: transparent; }
 .react-flow__node { cursor: pointer; }
 .react-flow__node.selected { outline: none; }

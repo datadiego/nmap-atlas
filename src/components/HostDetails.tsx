@@ -5,6 +5,8 @@ import type { NmapHost } from '../types';
 interface Props {
   host: NmapHost;
   open?: boolean;
+  /** Abre también las secciones internas (huellas de SO), no solo el bloque. */
+  openSections?: boolean;
   onNotesChange?: (notes: string) => void;
   onNotesCommit?: () => void;
 }
@@ -22,7 +24,13 @@ function cpeUrl(cpe: string): string {
   return `https://nvd.nist.gov/vuln/search/results?query=${encodeURIComponent(cpe)}&search_type=all`;
 }
 
-export default function HostDetails({ host, open = false, onNotesChange, onNotesCommit }: Props) {
+export default function HostDetails({
+  host,
+  open = false,
+  openSections = false,
+  onNotesChange,
+  onNotesCommit,
+}: Props) {
   const { t, formatNumber } = useI18n();
   const osSummary = host.os[0]?.name || host.osClasses[0]?.osFamily || host.osClasses[0]?.vendor || '';
 
@@ -89,7 +97,7 @@ export default function HostDetails({ host, open = false, onNotesChange, onNotes
                   <span>{t('host.accuracy', { count: formatNumber(match.accuracy) })}</span>
                 </div>
                 {match.line && (
-                  <details className="host-os-fingerprint">
+                  <details className="host-os-fingerprint" open={openSections}>
                     <summary>{t('host.osLine')}</summary>
                     <code>{match.line}</code>
                   </details>

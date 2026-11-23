@@ -5,6 +5,7 @@ import {
   GitBranch,
   Home,
   LayoutGrid,
+  List,
   Map,
   Maximize2,
   Network,
@@ -12,22 +13,21 @@ import {
   Server,
   X,
 } from 'lucide-react';
-import type { NmapScan } from '../types';
-import type { GraphModel } from '../graph/model';
-import type { LayoutMode } from '../graph/layouts';
+import type { ViewMode } from '../viewMode';
 import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
-  scan: NmapScan;
-  model: GraphModel;
+  hostCount: number;
+  openPorts: number;
+  subnetCount: number;
+  layoutMode: ViewMode;
+  onLayoutMode: (mode: ViewMode) => void;
   query: string;
   matchCount: number;
   onlyWithPorts: boolean;
   searchRef: RefObject<HTMLInputElement>;
   onQuery: (value: string) => void;
   onOnlyWithPorts: (value: boolean) => void;
-  layoutMode: LayoutMode;
-  onLayoutMode: (mode: LayoutMode) => void;
   onHome: () => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
@@ -38,16 +38,17 @@ interface Props {
 }
 
 export default function Toolbar({
-  scan,
-  model,
+  hostCount,
+  openPorts,
+  subnetCount,
+  layoutMode,
+  onLayoutMode,
   query,
   matchCount,
   onlyWithPorts,
   searchRef,
   onQuery,
   onOnlyWithPorts,
-  layoutMode,
-  onLayoutMode,
   onHome,
   onExpandAll,
   onCollapseAll,
@@ -57,17 +58,22 @@ export default function Toolbar({
   onFocusMatch,
 }: Props) {
   const { t, formatNumber } = useI18n();
+  const isList = layoutMode === 'list';
 
   return (
     <div className="toolbar">
       <div className="toolbar-stats">
-        <div className="stat"><Server size={15} /><strong>{formatNumber(scan.hosts.length)}</strong><span>hosts</span></div>
-        <div className="stat"><Network size={15} /><strong>{formatNumber(model.openPorts)}</strong><span>{t('toolbar.open')}</span></div>
-        <div className="stat"><span className="stat-glyph">◇</span><strong>{formatNumber(model.subnets.length)}</strong><span>{t('toolbar.subnets')}</span></div>
+        <div className="stat"><Server size={15} /><strong>{formatNumber(hostCount)}</strong><span>hosts</span></div>
+        <div className="stat"><Network size={15} /><strong>{formatNumber(openPorts)}</strong><span>{t('toolbar.open')}</span></div>
+        <div className="stat"><span className="stat-glyph">◇</span><strong>{formatNumber(subnetCount)}</strong><span>{t('toolbar.subnets')}</span></div>
       </div>
 
       <div className="toolbar-actions">
-        <button className="btn-home" onClick={onHome} title={t('toolbar.homeTitle')}>
+        <button
+          className="btn-home"
+          onClick={onHome}
+          title={isList ? t('toolbar.homeListTitle') : t('toolbar.homeTitle')}
+        >
           <Home size={15} /> {t('toolbar.home')}
         </button>
 
@@ -97,37 +103,58 @@ export default function Toolbar({
           {t('toolbar.onlyOpen')}
         </button>
         <div className="toolbar-divider" />
-        <div className="layout-switch" role="group" aria-label={t('toolbar.graphLayout')}>
+
+        <div className="layout-switch" role="group" aria-label={t('toolbar.viewMode')}>
           <button
             className={layoutMode === 'grid' ? 'active' : ''}
             onClick={() => onLayoutMode('grid')}
             title={t('toolbar.gridTitle')}
+            aria-pressed={layoutMode === 'grid'}
           ><LayoutGrid size={14} /><span>{t('toolbar.grid')}</span></button>
           <button
             className={layoutMode === 'hierarchy' ? 'active' : ''}
             onClick={() => onLayoutMode('hierarchy')}
             title={t('toolbar.treeTitle')}
+            aria-pressed={layoutMode === 'hierarchy'}
           ><GitBranch size={14} /><span>{t('toolbar.tree')}</span></button>
+          <button
+            className={isList ? 'active' : ''}
+            onClick={() => onLayoutMode('list')}
+            title={t('toolbar.listTitle')}
+            aria-pressed={isList}
+          ><List size={14} /><span>{t('toolbar.list')}</span></button>
         </div>
 
-        <div className="toolbar-divider" />
-        <button className="icon-button" onClick={onExpandAll} title={t('toolbar.expandAll')}>
+        <button
+          className="icon-button"
+          onClick={onExpandAll}
+          title={isList ? t('toolbar.expandList') : t('toolbar.expandAll')}
+        >
           <ChevronsUpDown size={16} />
         </button>
-        <button className="icon-button" onClick={onCollapseAll} title={t('toolbar.collapseAll')}>
+        <button
+          className="icon-button"
+          onClick={onCollapseAll}
+          title={isList ? t('toolbar.collapseList') : t('toolbar.collapseAll')}
+        >
           <ChevronsDownUp size={16} />
         </button>
-        <button className="icon-button" onClick={onFit} title={t('toolbar.fit')}>
-          <Maximize2 size={16} />
-        </button>
-        <button
-          className={`icon-button ${showMiniMap ? 'active' : ''}`}
-          onClick={onToggleMiniMap}
-          title={showMiniMap ? t('toolbar.hideMiniMap') : t('toolbar.showMiniMap')}
-          aria-pressed={showMiniMap}
-        >
-          <Map size={16} />
-        </button>
+
+        {!isList && (
+          <>
+            <button className="icon-button" onClick={onFit} title={t('toolbar.fit')}>
+              <Maximize2 size={16} />
+            </button>
+            <button
+              className={`icon-button ${showMiniMap ? 'active' : ''}`}
+              onClick={onToggleMiniMap}
+              title={showMiniMap ? t('toolbar.hideMiniMap') : t('toolbar.showMiniMap')}
+              aria-pressed={showMiniMap}
+            >
+              <Map size={16} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

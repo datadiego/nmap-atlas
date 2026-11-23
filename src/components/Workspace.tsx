@@ -17,15 +17,18 @@ import { useI18n } from '../i18n/I18nProvider';
 import { GraphActionsContext } from '../graph/actions';
 import { useTheme } from '../theme';
 import { layoutGraph, type LayoutMode } from '../graph/layouts';
+import { buildSubnetGroups, countOpenPorts } from '../graph/subnets';
 import {
   NODE_SIZES,
   applyView,
   buildGraph,
-  openPortCount,
   stateColor,
   type EntityNode,
 } from '../graph/model';
+import { hostLabel } from '../parser/nmapXml';
+import { loadViewMode, saveViewMode, type ViewMode } from '../viewMode';
 import EntityNodeView from './EntityNodeView';
+import HostList, { buildHostSearchIndex, filterHostList } from './HostList';
 import PortsCard from './PortsCard';
 import Toolbar from './Toolbar';
 
@@ -37,33 +40,54 @@ interface Props {
   onNotesCommit: (hostKey: string) => void;
 }
 
+function toggleInSet(source: Set<string>, value: string): Set<string> {
+  const next = new Set(source);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
+}
+
 function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
   const { t } = useI18n();
   const theme = useTheme();
-  const model = useMemo(() => buildGraph(scan, t), [scan, t]);
+
+  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
+  const isGraph = viewMode !== 'list';
+  const layoutMode: LayoutMode = viewMode === 'grid' ? 'grid' : 'hierarchy';
+  // La vista de lista no construye nodos, aristas ni layouts: solo HTML.
+  const model = useMemo(() => (isGraph ? buildGraph(scan, t) : null), [isGraph, scan, t]);
+  const subnetGroups = useMemo(() => buildSubnetGroups(scan, t), [scan, t]);
+  const openPorts = useMemo(
+    () => scan.hosts.reduce((total, host) => total + countOpenPorts(host), 0),
+    [scan.hosts],
+  );
+
   // En escaneos grandes con pocos hosts interesantes, empezamos filtrados
   // para que el mapa sea legible sin perder el resto (se puede desactivar).
   const initialOnlyWithPorts =
-    model.openPorts > 0 && model.openPorts / Math.max(scan.hosts.length, 1) <= 0.25;
-  // El árbol jerárquico es la vista clásica y la que se muestra al abrir un escaneo.
-  const initialLayout: LayoutMode = 'hierarchy';
-
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>(initialLayout);
+    openPorts > 0 && openPorts / Math.max(scan.hosts.length, 1) <= 0.25;
   const [baseNodes, setBaseNodes] = useState<EntityNode[]>(() =>
-    layoutGraph(model, initialLayout, { onlyWithPorts: initialOnlyWithPorts }),
+    model ? layoutGraph(model, layoutMode, { onlyWithPorts: initialOnlyWithPorts }) : [],
   );
 
-  // El layout conserva posiciones arrastradas, pero los datos de cada nodo
-  // deben seguir al host (por ejemplo cuando cambian sus notas).
+  // Si no hay nodos (primer render en grafo) calculamos el layout. Con nodos
+  // ya presentes solo refrescamos datos (por ejemplo, notas) para conservar
+  // las posiciones arrastradas por el usuario.
   useEffect(() => {
-    const freshById = new Map(model.nodes.map((node) => [node.id, node]));
-    setBaseNodes((current) =>
-      current.map((node) => {
+    if (!model) return;
+    setBaseNodes((current) => {
+      if (current.length === 0) {
+        return layoutGraph(model, layoutMode, { onlyWithPorts });
+      }
+      const freshById = new Map(model.nodes.map((node) => [node.id, node]));
+      return current.map((node) => {
         const fresh = freshById.get(node.id);
         if (!fresh) return node;
         return { ...node, data: { ...fresh.data, dimmed: node.data.dimmed } };
-      }),
-    );
+      });
+    });
+    // El layout solo se recalcula cuando cambia el modelo, no al buscar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model]);
 
   // Los puertos no son nodos: se abren en una ficha flotante dentro del mapa.
@@ -72,13 +96,22 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
   const [query, setQuery] = useState('');
   const [onlyWithPorts, setOnlyWithPorts] = useState(initialOnlyWithPorts);
   const [showMiniMap, setShowMiniMap] = useState(false);
+  const [expandedSubnets, setExpandedSubnets] = useState<Set<string>>(() => new Set());
+  const [expandedHosts, setExpandedHosts] = useState<Set<string>>(() => new Set());
+  const [scrollTo, setScrollTo] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const { getNode, setCenter, fitView } = useReactFlow();
 
   const view = useMemo(
-    () => applyView(model, { query, onlyWithPorts }, baseNodes),
+    () => (model ? applyView(model, { query, onlyWithPorts }, baseNodes) : null),
     [model, baseNodes, query, onlyWithPorts],
   );
+  const searchIndex = useMemo(() => buildHostSearchIndex(scan.hosts), [scan.hosts]);
+  const listView = useMemo(
+    () => filterHostList(searchIndex, query, onlyWithPorts),
+    [searchIndex, query, onlyWithPorts],
+  );
+  const matchCount = viewMode === 'list' ? listView.matchCount : (view?.matchCount ?? 0);
 
   const onNodesChange = useCallback((changes: NodeChange<EntityNode>[]) => {
     setBaseNodes((current) => applyNodeChanges(changes, current));
@@ -93,8 +126,8 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
   );
 
   const actions = useMemo(
-    () => ({ activeHost, childrenByHost: model.childrenByHost, toggleHost }),
-    [activeHost, model.childrenByHost, toggleHost],
+    () => ({ activeHost, childrenByHost: model?.childrenByHost ?? {}, toggleHost }),
+    [activeHost, model, toggleHost],
   );
 
   const fit = useCallback(() => {
@@ -125,23 +158,41 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
 
   const goHome = useCallback(() => {
     closeCard();
-    fit();
-  }, [closeCard, fit]);
+    if (viewMode === 'list') {
+      setQuery('');
+      setOnlyWithPorts(false);
+      setExpandedSubnets(new Set());
+      setExpandedHosts(new Set());
+    } else {
+      fit();
+    }
+  }, [closeCard, fit, viewMode]);
 
   const changeLayout = useCallback(
-    (mode: LayoutMode) => {
-      setLayoutMode(mode);
-      setBaseNodes(layoutGraph(model, mode, { onlyWithPorts }));
+    (mode: ViewMode) => {
+      if (mode === viewMode) return;
+      setViewMode(mode);
+      saveViewMode(mode);
+      closeCard();
+
+      if (mode === 'list') {
+        // Al volver al grafo se recalcula el layout con la opción elegida.
+        setBaseNodes([]);
+        return;
+      }
+
+      if (model) setBaseNodes(layoutGraph(model, mode, { onlyWithPorts }));
       requestAnimationFrame(() =>
         requestAnimationFrame(() => void fitView({ padding: 0.16, duration: 500 })),
       );
     },
-    [model, fitView, onlyWithPorts],
+    [viewMode, model, onlyWithPorts, closeCard, fitView],
   );
 
   const changeOnlyWithPorts = useCallback(
     (value: boolean) => {
       setOnlyWithPorts(value);
+      if (!model) return;
       setBaseNodes(layoutGraph(model, layoutMode, { onlyWithPorts: value }));
       requestAnimationFrame(() =>
         requestAnimationFrame(() => void fitView({ padding: 0.16, duration: 450 })),
@@ -152,6 +203,7 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
 
   const focusNode = useCallback(
     (id: string) => {
+      if (!isGraph) return;
       const hostKey = /^(?:host|port|extra):([^:]+)/.exec(id)?.[1];
       const host = scan.hosts.find((candidate) => candidate.key === hostKey);
       if (hostKey) {
@@ -160,16 +212,41 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
       } else {
         closeCard();
       }
-      if (onlyWithPorts && host && openPortCount(host) === 0) changeOnlyWithPorts(false);
+      if (onlyWithPorts && host && countOpenPorts(host) === 0) changeOnlyWithPorts(false);
       centerOn(hostKey ? `host:${hostKey}` : id, 1.05);
     },
-    [scan.hosts, onlyWithPorts, changeOnlyWithPorts, centerOn, closeCard],
+    [isGraph, scan.hosts, onlyWithPorts, changeOnlyWithPorts, centerOn, closeCard],
   );
 
   const focusMatch = useCallback(() => {
-    const first = view.matchedNodes[0];
+    if (viewMode === 'list') {
+      if (onlyWithPorts && listView.hosts.length === 0 && listView.matchCount > 0) {
+        changeOnlyWithPorts(false);
+        return;
+      }
+      const first = listView.hosts[0];
+      if (!first) return;
+      const subnet = subnetGroups.find((group) =>
+        group.hosts.some((host) => host.key === first.key),
+      );
+      if (subnet) setExpandedSubnets((current) => new Set(current).add(subnet.id));
+      setExpandedHosts((current) => new Set(current).add(first.key));
+      setScrollTo(first.key);
+      return;
+    }
+    const first = view?.matchedNodes[0];
     if (first) focusNode(first.id);
-  }, [view.matchedNodes, focusNode]);
+  }, [
+    viewMode,
+    onlyWithPorts,
+    listView,
+    subnetGroups,
+    changeOnlyWithPorts,
+    view,
+    focusNode,
+  ]);
+
+  const clearScroll = useCallback(() => setScrollTo(null), []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -189,34 +266,54 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
   }, []);
 
   const expandAll = () => {
+    if (viewMode === 'list') {
+      setExpandedSubnets(new Set(subnetGroups.map((subnet) => subnet.id)));
+      return;
+    }
     setActiveHost(null);
     setShowAllPorts(true);
   };
-  const collapseAll = goHome;
+
+  const collapseAll = () => {
+    if (viewMode === 'list') {
+      setExpandedSubnets(new Set());
+      setExpandedHosts(new Set());
+      return;
+    }
+    goHome();
+  };
+
+  const activeHostData = activeHost
+    ? scan.hosts.find((host) => `host:${host.key}` === activeHost)
+    : null;
   const activeHostLabel = showAllPorts
     ? t('workspace.allPorts')
-    : activeHost
-      ? (model.nodes.find((node) => node.id === activeHost)?.data.label ?? activeHost)
+    : activeHostData
+      ? hostLabel(activeHostData, t)
       : null;
-  const cardHosts: NmapHost[] = showAllPorts
-    ? scan.hosts.filter((host) => view.nodes.some((node) => node.id === `host:${host.key}`))
-    : activeHost
-      ? scan.hosts.filter((host) => `host:${host.key}` === activeHost)
-      : [];
+  const cardHosts: NmapHost[] =
+    !isGraph || !view
+      ? []
+      : showAllPorts
+        ? scan.hosts.filter((host) => view.nodes.some((node) => node.id === `host:${host.key}`))
+        : activeHost
+          ? scan.hosts.filter((host) => `host:${host.key}` === activeHost)
+          : [];
 
   return (
     <GraphActionsContext.Provider value={actions}>
       <div className="workspace">
         <Toolbar
-          scan={scan}
-          model={model}
+          hostCount={scan.hosts.length}
+          openPorts={openPorts}
+          subnetCount={subnetGroups.length}
           query={query}
-          matchCount={view.matchCount}
+          matchCount={matchCount}
           onlyWithPorts={onlyWithPorts}
           searchRef={searchRef}
           onQuery={setQuery}
           onOnlyWithPorts={changeOnlyWithPorts}
-          layoutMode={layoutMode}
+          layoutMode={viewMode}
           onLayoutMode={changeLayout}
           onHome={goHome}
           onExpandAll={expandAll}
@@ -227,75 +324,92 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
           onFocusMatch={focusMatch}
         />
 
-        <div className="graph-area">
-          <ReactFlow
-            nodes={view.nodes}
-            edges={view.edges}
-            onNodesChange={onNodesChange}
-            nodeTypes={nodeTypes}
-            onNodeClick={(_, node) => {
-              if (node.data.entity.type !== 'host') return;
-              if (activeHost === node.id) {
-                closeCard();
-              } else {
-                // Abrimos la ficha a la derecha sin mover el mapa: el overview
-                // sigue donde está y el host se marca como activo.
-                setShowAllPorts(false);
-                setActiveHost(node.id);
-              }
-            }}
-            nodesConnectable={false}
-            nodesDraggable
-            colorMode={theme === 'light' ? 'light' : 'dark'}
-            fitView
-            fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
-            minZoom={0.03}
-            maxZoom={2}
-            proOptions={{ hideAttribution: false }}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--surface-2)" />
-            <Controls showInteractive={false} />
-            {showMiniMap && (
-              <MiniMap
-                position="bottom-right"
-                pannable
-                zoomable
-                maskColor="rgba(var(--bg-rgb), 0.75)"
-                nodeColor={(node) => {
-                  const data = (node as EntityNode).data;
-                  if (data.dimmed) return 'var(--surface-2)';
-                  switch (data.kind) {
-                    case 'group': return 'transparent';
-                    case 'scan': return 'var(--accent)';
-                    case 'subnet': return 'var(--pink)';
-                    case 'host': return 'var(--teal)';
-                    case 'port': return stateColor(data.state);
-                    default: return 'var(--dim)';
-                  }
-                }}
-              />
-            )}
-            {activeHostLabel && (
-              <Panel position="top-left" className="breadcrumb-panel">
-                <button onClick={goHome}>{t('workspace.backToScan')}</button>
-                <span>/</span>
-                <strong>{activeHostLabel}</strong>
-              </Panel>
-            )}
-
-            {cardHosts.length > 0 && (
-              <Panel position="top-right" className="ports-card-panel">
-                <PortsCard
-                  hosts={cardHosts}
-                  query={query}
-                  onClose={closeCard}
-                  onNotesChange={onNotesChange}
-                  onNotesCommit={onNotesCommit}
+        {viewMode === 'list' ? (
+          <HostList
+            hosts={listView.hosts}
+            subnets={subnetGroups}
+            query={query}
+            matchedKeys={listView.matchedKeys}
+            expandedSubnets={expandedSubnets}
+            expandedHosts={expandedHosts}
+            onToggleSubnet={(id) => setExpandedSubnets((current) => toggleInSet(current, id))}
+            onToggleHost={(key) => setExpandedHosts((current) => toggleInSet(current, key))}
+            onNotesChange={onNotesChange}
+            onNotesCommit={onNotesCommit}
+            scrollTo={scrollTo}
+            onScrolled={clearScroll}
+          />
+        ) : (
+          <div className="graph-area">
+            <ReactFlow
+              nodes={view?.nodes ?? []}
+              edges={view?.edges ?? []}
+              onNodesChange={onNodesChange}
+              nodeTypes={nodeTypes}
+              onNodeClick={(_, node) => {
+                if (node.data.entity.type !== 'host') return;
+                if (activeHost === node.id) {
+                  closeCard();
+                } else {
+                  // Abrimos la ficha a la derecha sin mover el mapa: el overview
+                  // sigue donde está y el host se marca como activo.
+                  setShowAllPorts(false);
+                  setActiveHost(node.id);
+                }
+              }}
+              nodesConnectable={false}
+              nodesDraggable
+              colorMode={theme === 'light' ? 'light' : 'dark'}
+              fitView
+              fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
+              minZoom={0.03}
+              maxZoom={2}
+              proOptions={{ hideAttribution: false }}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--surface-2)" />
+              <Controls showInteractive={false} />
+              {showMiniMap && (
+                <MiniMap
+                  position="bottom-right"
+                  pannable
+                  zoomable
+                  maskColor="rgba(var(--bg-rgb), 0.75)"
+                  nodeColor={(node) => {
+                    const data = (node as EntityNode).data;
+                    if (data.dimmed) return 'var(--surface-2)';
+                    switch (data.kind) {
+                      case 'group': return 'transparent';
+                      case 'scan': return 'var(--accent)';
+                      case 'subnet': return 'var(--pink)';
+                      case 'host': return 'var(--teal)';
+                      case 'port': return stateColor(data.state);
+                      default: return 'var(--dim)';
+                    }
+                  }}
                 />
-              </Panel>
-            )}
-          </ReactFlow>
-        </div>
+              )}
+              {activeHostLabel && (
+                <Panel position="top-left" className="breadcrumb-panel">
+                  <button onClick={goHome}>{t('workspace.backToScan')}</button>
+                  <span>/</span>
+                  <strong>{activeHostLabel}</strong>
+                </Panel>
+              )}
+
+              {cardHosts.length > 0 && (
+                <Panel position="top-right" className="ports-card-panel">
+                  <PortsCard
+                    hosts={cardHosts}
+                    query={query}
+                    onClose={closeCard}
+                    onNotesChange={onNotesChange}
+                    onNotesCommit={onNotesCommit}
+                  />
+                </Panel>
+              )}
+            </ReactFlow>
+          </div>
+        )}
       </div>
     </GraphActionsContext.Provider>
   );

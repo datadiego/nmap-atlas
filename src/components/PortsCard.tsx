@@ -3,7 +3,7 @@ import { stateColor } from '../graph/model';
 import { hostLabel } from '../parser/nmapXml';
 import { useI18n } from '../i18n/I18nProvider';
 import HostDetails from './HostDetails';
-import type { TranslationKey } from '../i18n';
+import { stateKeys } from './portState';
 import type { NmapHost, NmapPort } from '../types';
 
 interface Props {
@@ -13,16 +13,6 @@ interface Props {
   onNotesChange: (hostKey: string, notes: string) => void;
   onNotesCommit: (hostKey: string) => void;
 }
-
-const stateKeys: Record<string, TranslationKey> = {
-  open: 'state.open',
-  closed: 'state.closed',
-  filtered: 'state.filtered',
-  unfiltered: 'state.unfiltered',
-  'open|filtered': 'state.openFiltered',
-  'closed|filtered': 'state.closedFiltered',
-  unknown: 'state.unknown',
-};
 
 function portText(port: NmapPort): string {
   const service = port.service;
