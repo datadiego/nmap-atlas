@@ -15,6 +15,7 @@ import {
 import type { NmapHost, NmapScan } from '../types';
 import { useI18n } from '../i18n/I18nProvider';
 import { GraphActionsContext } from '../graph/actions';
+import { useTheme } from '../theme';
 import { layoutGraph, type LayoutMode } from '../graph/layouts';
 import {
   NODE_SIZES,
@@ -36,6 +37,7 @@ interface Props {
 
 function WorkspaceInner({ scan }: Props) {
   const { t } = useI18n();
+  const theme = useTheme();
   const model = useMemo(() => buildGraph(scan, t), [scan, t]);
   // En escaneos grandes con pocos hosts interesantes, empezamos filtrados
   // para que el mapa sea legible sin perder el resto (se puede desactivar).
@@ -228,7 +230,7 @@ function WorkspaceInner({ scan }: Props) {
             }}
             nodesConnectable={false}
             nodesDraggable
-            colorMode="dark"
+            colorMode={theme === 'light' ? 'light' : 'dark'}
             fitView
             fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
             minZoom={0.03}

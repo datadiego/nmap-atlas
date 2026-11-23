@@ -27,6 +27,8 @@ export const es = {
   'options.theme': 'Tema',
   'theme.gruvbox': 'Gruvbox',
   'theme.dracula': 'Dracula',
+  'theme.dark': 'Oscuro',
+  'theme.light': 'Claro',
   'remember.target': 'Objetivo',
   'remember.ports': 'Puertos',
   'remember.profile': 'Último perfil usado',

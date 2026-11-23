@@ -29,6 +29,8 @@ export const en: Translation = {
   'options.theme': 'Theme',
   'theme.gruvbox': 'Gruvbox',
   'theme.dracula': 'Dracula',
+  'theme.dark': 'Dark',
+  'theme.light': 'Light',
   'remember.target': 'Target',
   'remember.ports': 'Ports',
   'remember.profile': 'Last profile used',

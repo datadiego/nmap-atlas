@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Settings2 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { languageName, locales, type Locale } from '../i18n';
-import { loadTheme, saveTheme, themes, type Theme } from '../theme';
+import { saveTheme, themes, useTheme, type Theme } from '../theme';
 import {
   DEFAULT_REMEMBER,
   REMEMBER_FIELDS,
@@ -16,7 +16,7 @@ import {
 export default function OptionsPanel() {
   const { t, locale, setLocale } = useI18n();
   const [remember, setRemember] = useState<RememberSettings>(loadRememberSettings);
-  const [theme, setTheme] = useState<Theme>(loadTheme);
+  const theme = useTheme();
   const allRemembered = REMEMBER_FIELDS.every(({ id }) => remember[id]);
 
   const toggleField = (field: RememberField) => {
@@ -86,9 +86,7 @@ export default function OptionsPanel() {
             className="scan-input"
             value={theme}
             onChange={(event) => {
-              const next = event.target.value as Theme;
-              saveTheme(next);
-              setTheme(next);
+              saveTheme(event.target.value as Theme);
             }}
           >
             {themes.map((code) => (
