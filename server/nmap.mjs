@@ -7,6 +7,13 @@ export class ValidationError extends Error {}
 const PROFILES = {
   quick: ['-F', '--open'],
   hosts: ['-sn', '-n', '--max-retries=1'],
+  // Descubrimiento incisivo: combina ARP (red local), ICMP, TCP y UDP para
+  // detectar dispositivos que bloquean un único tipo de sonda (móviles, IoT...).
+  deep: [
+    '-sn', '-PR', '-PE', '-PP', '-PM',
+    '-PS80,443,5223', '-PA80,443', '-PU5353,1900',
+    '-n', '--max-retries=2',
+  ],
   service: ['-sV', '-sC', '--open'],
   full: ['-sV', '-sC', '-O', '-p-'],
   custom: [],
@@ -29,7 +36,14 @@ const ALLOWED_OPTIONS = new Set([
   '-p-',
   '-Pn',
   '-PE',
+  '-PP',
+  '-PM',
+  '-PR',
+  '-PS80,443,5223',
+  '-PA80,443',
+  '-PU5353,1900',
   '--max-retries=1',
+  '--max-retries=2',
   '-n',
   '-R',
   '-6',
@@ -58,7 +72,8 @@ const BLOCKED_FLAG_PREFIXES = [
   '--resume',
   '--stylesheet',
 ];
-const FLAG_PATTERN = /^--?[A-Za-z][A-Za-z0-9._-]*(?:=([A-Za-z0-9._:%+/=-]{1,80}))?$/;
+// La coma se permite dentro del flag para sondas con lista de puertos (-PS80,443).
+const FLAG_PATTERN = /^--?[A-Za-z][A-Za-z0-9._,-]*(?:=([A-Za-z0-9._:%+/=,-]{1,80}))?$/;
 const VALUE_PATTERN = /^[A-Za-z0-9._:%+/=-]{1,80}$/;
 const FLAGS_WITH_VALUE = new Set([
   '--scan-delay', '--max-scan-delay', '--host-timeout',

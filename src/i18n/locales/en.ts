@@ -38,6 +38,8 @@ export const en: Translation = {
   'profile.quickHint': '100 common ports, open only',
   'profile.hosts': 'Discover hosts',
   'profile.hostsHint': 'Fast discovery, no port scan',
+  'profile.deep': 'Aggressive discovery',
+  'profile.deepHint': 'ARP, ICMP, TCP and UDP',
   'profile.service': 'Services',
   'profile.serviceHint': 'Version + NSE scripts',
   'profile.full': 'Full',

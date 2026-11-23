@@ -36,6 +36,8 @@ export const es = {
   'profile.quickHint': '100 puertos comunes, solo abiertos',
   'profile.hosts': 'Detectar hosts',
   'profile.hostsHint': 'Descubrimiento rápido, sin escanear puertos',
+  'profile.deep': 'Detección agresiva',
+  'profile.deepHint': 'ARP, ICMP, TCP y UDP',
   'profile.service': 'Servicios',
   'profile.serviceHint': 'Versión + scripts NSE',
   'profile.full': 'Completo',

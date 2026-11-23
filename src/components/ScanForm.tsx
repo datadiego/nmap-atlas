@@ -42,6 +42,16 @@ interface OptionTooltip {
 const PROFILES = [
   { id: 'quick', labelKey: 'profile.quick', flags: ['-F', '--open'], hintKey: 'profile.quickHint' },
   { id: 'hosts', labelKey: 'profile.hosts', flags: ['-sn', '-n', '--max-retries=1'], hintKey: 'profile.hostsHint' },
+  {
+    id: 'deep',
+    labelKey: 'profile.deep',
+    flags: [
+      '-sn', '-PR', '-PE', '-PP', '-PM',
+      '-PS80,443,5223', '-PA80,443', '-PU5353,1900',
+      '-n', '--max-retries=2',
+    ],
+    hintKey: 'profile.deepHint',
+  },
   { id: 'service', labelKey: 'profile.service', flags: ['-sV', '-sC', '--open'], hintKey: 'profile.serviceHint' },
   { id: 'full', labelKey: 'profile.full', flags: ['-sV', '-sC', '-O', '-p-'], hintKey: 'profile.fullHint' },
   { id: 'custom', labelKey: 'profile.custom', flags: [], hintKey: 'profile.customHint' },
