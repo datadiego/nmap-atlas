@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Calculator, Info, LoaderCircle, Play, Terminal, X } from 'lucide-react';
+import { AlertCircle, Calculator, LoaderCircle, Play, Terminal, X } from 'lucide-react';
 import type { ApiStatus, ScanResult } from '../types';
 import { playSuccessSound } from '../audio';
+import {
+  DEFAULT_FORM_VALUES,
+  loadRememberedForm,
+  loadRememberSettings,
+  saveRememberedForm,
+  type RememberedForm,
+} from '../remember';
 import IpcCalcPanel from './IpcCalcPanel';
 
 interface Props {
@@ -195,6 +202,12 @@ const HOST_TIMEOUTS = [
   { value: '300000', label: '5 min' },
 ] as const;
 const STATUS_KEY = 'nmap-atlas:status-dismissed';
+const KNOWN_FLAGS = new Set<string>([
+  ...PROFILES.flatMap((item) => item.flags),
+  ...OPTION_GROUPS.flatMap((group) => group.options.map((option) => option.flag)),
+]);
+const defaultOptionsFor = (profileId: string) =>
+  new Set(PROFILES.find((item) => item.id === profileId)?.flags ?? []);
 
 const newScanId = () =>
   globalThis.crypto?.randomUUID?.() ?? `scan-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -218,18 +231,51 @@ const formatBytes = (bytes: number) => {
 };
 
 export default function ScanForm({ status, onLoad }: Props) {
-  const [target, setTarget] = useState('127.0.0.1');
-  const [profile, setProfile] = useState<string>('service');
-  const [ports, setPorts] = useState('');
-  const [timing, setTiming] = useState<string>('-T4');
-  const [options, setOptions] = useState<Set<string>>(
-    () => new Set(PROFILES.find((item) => item.id === 'service')?.flags ?? []),
+  const [remember] = useState(loadRememberSettings);
+  const [rememberedForm] = useState<Partial<RememberedForm>>(loadRememberedForm);
+  const [target, setTarget] = useState(() =>
+    remember.target && typeof rememberedForm.target === 'string'
+      ? rememberedForm.target
+      : DEFAULT_FORM_VALUES.target,
   );
+  const [profile, setProfile] = useState<string>(() => {
+    const saved = rememberedForm.profile;
+    return remember.profile && typeof saved === 'string' && PROFILES.some((item) => item.id === saved)
+      ? saved
+      : DEFAULT_FORM_VALUES.profile;
+  });
+  const [ports, setPorts] = useState(() =>
+    remember.ports && typeof rememberedForm.ports === 'string'
+      ? rememberedForm.ports
+      : DEFAULT_FORM_VALUES.ports,
+  );
+  const [timing, setTiming] = useState<string>(() =>
+    remember.timing && typeof rememberedForm.timing === 'string'
+      ? rememberedForm.timing
+      : DEFAULT_FORM_VALUES.timing,
+  );
+  const [options, setOptions] = useState<Set<string>>(() => {
+    const saved = rememberedForm.options;
+    if (remember.options && Array.isArray(saved)) {
+      return new Set(
+        saved.filter((flag): flag is string => typeof flag === 'string' && KNOWN_FLAGS.has(flag)),
+      );
+    }
+    return defaultOptionsFor(DEFAULT_FORM_VALUES.profile);
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [showIpcCalc, setShowIpcCalc] = useState(false);
-  const [timeoutMs, setTimeoutMs] = useState('');
-  const [hostTimeoutMs, setHostTimeoutMs] = useState('');
+  const [timeoutMs, setTimeoutMs] = useState(() =>
+    remember.timeout && typeof rememberedForm.timeout === 'string'
+      ? rememberedForm.timeout
+      : DEFAULT_FORM_VALUES.timeout,
+  );
+  const [hostTimeoutMs, setHostTimeoutMs] = useState(() =>
+    remember.hostTimeout && typeof rememberedForm.hostTimeout === 'string'
+      ? rememberedForm.hostTimeout
+      : DEFAULT_FORM_VALUES.hostTimeout,
+  );
   const [scanId, setScanId] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [progress, setProgress] = useState<ScanProgress>({
@@ -335,6 +381,18 @@ export default function ScanForm({ status, onLoad }: Props) {
     if (tooltipTimer.current !== null) window.clearTimeout(tooltipTimer.current);
     if (tooltipShowTimer.current !== null) window.clearTimeout(tooltipShowTimer.current);
   }, []);
+
+  useEffect(() => {
+    const saved: Partial<RememberedForm> = {};
+    if (remember.target) saved.target = target;
+    if (remember.ports) saved.ports = ports;
+    if (remember.profile) saved.profile = profile;
+    if (remember.timeout) saved.timeout = timeoutMs;
+    if (remember.hostTimeout) saved.hostTimeout = hostTimeoutMs;
+    if (remember.timing) saved.timing = timing;
+    if (remember.options) saved.options = [...options];
+    saveRememberedForm(remember, saved);
+  }, [remember, target, ports, profile, timeoutMs, hostTimeoutMs, timing, options]);
 
   const showOptionTooltip = (option: ScanOption, element: HTMLElement) => {
     if (tooltipTimer.current !== null) {
@@ -688,7 +746,6 @@ export default function ScanForm({ status, onLoad }: Props) {
                       onChange={() => toggleOption(option.flag)}
                     />
                     <span><code>{option.flag}</code> {option.label}</span>
-                    <Info size={12} className="scan-option-help" aria-hidden="true" />
                     <span id={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`} className="sr-only">
                       {option.doc}
                     </span>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
-import { AlertCircle, FileCode2, FolderOpen, LoaderCircle, Terminal } from 'lucide-react';
+import { AlertCircle, FileCode2, FolderOpen, LoaderCircle, Settings2, Terminal } from 'lucide-react';
 import type { ApiStatus, SavedScan } from '../types';
+import OptionsPanel from './OptionsPanel';
 import ScanForm from './ScanForm';
 
 interface Props {
@@ -13,7 +14,7 @@ function formatSize(bytes: number) {
 }
 
 export default function UploadView({ onLoad }: Props) {
-  const [mode, setMode] = useState<'file' | 'scan'>('scan');
+  const [mode, setMode] = useState<'file' | 'scan' | 'options'>('scan');
   const [apiStatus, setApiStatus] = useState<ApiStatus | null | undefined>(undefined);
   const [scans, setScans] = useState<SavedScan[]>([]);
   const [loadingSaved, setLoadingSaved] = useState<string | null>(null);
@@ -99,6 +100,14 @@ export default function UploadView({ onLoad }: Props) {
           >
             <Terminal size={16} /> Escanear
           </button>
+          <button
+            role="tab"
+            aria-selected={mode === 'options'}
+            className={mode === 'options' ? 'active' : ''}
+            onClick={() => { setMode('options'); setError(''); }}
+          >
+            <Settings2 size={16} /> Opciones
+          </button>
         </div>
 
         {mode === 'file' ? (
@@ -147,6 +156,8 @@ export default function UploadView({ onLoad }: Props) {
               </div>
             )}
           </div>
+        ) : mode === 'options' ? (
+          <OptionsPanel />
         ) : (
           <ScanForm status={apiStatus} onLoad={onLoad} />
         )}
