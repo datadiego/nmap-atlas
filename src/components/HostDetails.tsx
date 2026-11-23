@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
+import { screenshotUrl, useScreenshots } from '../screenshots';
 import type { NmapHost } from '../types';
 
 interface Props {
@@ -32,6 +33,8 @@ export default function HostDetails({
   onNotesCommit,
 }: Props) {
   const { t, formatNumber } = useI18n();
+  const { forHost } = useScreenshots();
+  const screenshots = forHost(host);
   const osSummary = host.os[0]?.name || host.osClasses[0]?.osFamily || host.osClasses[0]?.vendor || '';
 
   return (
@@ -85,6 +88,30 @@ export default function HostDetails({
                 {hostname.type && ` · ${hostname.type}`}
               </code>
             ))}
+          </Row>
+        )}
+
+        {screenshots.length > 0 && (
+          <Row label={t('host.screenshots')}>
+            <div className="host-screenshots">
+              {screenshots.map(({ key, port, shot }) => (
+                <a
+                  className="host-screenshot"
+                  href={screenshotUrl(shot.file)}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={t('host.screenshotOpen', { url: shot.url })}
+                  key={key}
+                >
+                  <img src={screenshotUrl(shot.file)} alt={shot.url} loading="lazy" />
+                  <span>
+                    <strong>:{port}</strong>
+                    {shot.title && <span>{shot.title}</span>}
+                    <code>{shot.url}</code>
+                  </span>
+                </a>
+              ))}
+            </div>
           </Row>
         )}
 

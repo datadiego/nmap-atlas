@@ -14,6 +14,7 @@ export const REMEMBER_FIELDS: ReadonlyArray<{
   { id: 'hostTimeout', labelKey: 'remember.hostTimeout' },
   { id: 'timing', labelKey: 'remember.timing' },
   { id: 'options', labelKey: 'remember.options' },
+  { id: 'gowitness', labelKey: 'remember.gowitness' },
 ] as const;
 
 export type RememberFieldId =
@@ -23,7 +24,8 @@ export type RememberFieldId =
   | 'timeout'
   | 'hostTimeout'
   | 'timing'
-  | 'options';
+  | 'options'
+  | 'gowitness';
 
 export type RememberField = RememberFieldId;
 export type RememberSettings = Record<RememberField, boolean>;
@@ -36,6 +38,7 @@ export interface RememberedForm {
   hostTimeout: string;
   timing: string;
   options: string[];
+  gowitness: boolean;
 }
 
 export const DEFAULT_FORM_VALUES: RememberedForm = {
@@ -46,6 +49,7 @@ export const DEFAULT_FORM_VALUES: RememberedForm = {
   hostTimeout: '',
   timing: '-T4',
   options: ['-sV', '-sC', '--open'],
+  gowitness: false,
 };
 
 export const DEFAULT_REMEMBER = Object.fromEntries(

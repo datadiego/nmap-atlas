@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { captureHttpScreenshots } from './gowitness.mjs';
 
 export class ValidationError extends Error {}
 
@@ -610,6 +611,19 @@ export async function runNmap(payload, config, activeScans = new Map()) {
   }
 
   const savedAs = config.save ? await saveXml(config.scansDir, result.stdout, target) : null;
+  let gowitness = null;
+  if (payload.gowitness === true) {
+    if (!savedAs) {
+      gowitness = 'No se pueden capturar pantallas sin un XML guardado (--no-save).';
+    } else {
+      try {
+        gowitness = await captureHttpScreenshots(path.join(config.scansDir, savedAs), config);
+      } catch (error) {
+        // Un fallo de gowitness nunca debe impedir devolver el escaneo.
+        gowitness = `No se pudieron capturar pantallas: ${error.message}`;
+      }
+    }
+  }
   return {
     xml: result.stdout,
     command: [...command, ...args].join(' '),
@@ -617,6 +631,7 @@ export async function runNmap(payload, config, activeScans = new Map()) {
     exitCode: result.code,
     stderr: result.stderr.trim().slice(-1000),
     savedAs,
+    gowitness,
     timeoutMs,
   };
 }

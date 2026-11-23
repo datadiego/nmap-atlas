@@ -5,13 +5,16 @@ import './styles.css';
 import App from './App';
 import { I18nProvider } from './i18n/I18nProvider';
 import { applyTheme, loadTheme } from './theme';
+import { ScreenshotsProvider } from './screenshots';
 
 applyTheme(loadTheme());
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <I18nProvider>
-      <App />
+      <ScreenshotsProvider>
+        <App />
+      </ScreenshotsProvider>
     </I18nProvider>
   </React.StrictMode>,
 );

@@ -1,14 +1,16 @@
 import type { LayoutMode } from './graph/layouts';
 
-/** La lista comparte selector con las dos distribuciones del grafo. */
-export type ViewMode = LayoutMode | 'list';
+/** La lista y las capturas comparten selector con las dos distribuciones del grafo. */
+export type ViewMode = LayoutMode | 'list' | 'screenshots';
 
 const VIEW_MODE_KEY = 'nmap-atlas:view-mode';
 
 export function loadViewMode(): ViewMode {
   try {
     const raw = localStorage.getItem(VIEW_MODE_KEY);
-    return raw === 'grid' || raw === 'list' || raw === 'hierarchy' ? raw : 'hierarchy';
+    return raw === 'grid' || raw === 'list' || raw === 'hierarchy' || raw === 'screenshots'
+      ? raw
+      : 'hierarchy';
   } catch {
     return 'hierarchy';
   }

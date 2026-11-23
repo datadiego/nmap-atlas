@@ -6,10 +6,15 @@ export type LayoutMode = 'grid' | 'hierarchy';
 
 export interface LayoutOptions {
   onlyWithPorts?: boolean;
+  onlyWithScreenshots?: boolean;
+  screenshotKeys?: Set<string>;
 }
 
 const visibleHosts = (hosts: GraphModel['subnets'][number]['hosts'], options: LayoutOptions) => {
-  const result = options.onlyWithPorts ? hosts.filter((host) => openPortCount(host) > 0) : [...hosts];
+  const result = hosts.filter((host) =>
+    (!options.onlyWithPorts || openPortCount(host) > 0) &&
+    (!options.onlyWithScreenshots || Boolean(options.screenshotKeys?.has(host.key))),
+  );
   return result.sort((a, b) =>
     (a.addresses[0]?.addr ?? '').localeCompare(b.addresses[0]?.addr ?? '', undefined, {
       numeric: true,

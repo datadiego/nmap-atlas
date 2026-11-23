@@ -14,6 +14,7 @@ import {
 } from '@xyflow/react';
 import type { NmapHost, NmapScan } from '../types';
 import { useI18n } from '../i18n/I18nProvider';
+import { useScreenshots } from '../screenshots';
 import { GraphActionsContext } from '../graph/actions';
 import { useTheme } from '../theme';
 import { layoutGraph, type LayoutMode } from '../graph/layouts';
@@ -29,6 +30,7 @@ import { hostLabel } from '../parser/nmapXml';
 import { loadViewMode, saveViewMode, type ViewMode } from '../viewMode';
 import EntityNodeView from './EntityNodeView';
 import HostList, { buildHostSearchIndex, filterHostList } from './HostList';
+import ScreenshotGrid, { buildCaptures, filterCaptures } from './ScreenshotGrid';
 import PortsCard from './PortsCard';
 import Toolbar from './Toolbar';
 
@@ -50,22 +52,28 @@ function toggleInSet(source: Set<string>, value: string): Set<string> {
 function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
   const { t } = useI18n();
   const theme = useTheme();
+  const { forHost } = useScreenshots();
 
   const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
-  const isGraph = viewMode !== 'list';
+  const isGraph = viewMode === 'grid' || viewMode === 'hierarchy';
   const layoutMode: LayoutMode = viewMode === 'grid' ? 'grid' : 'hierarchy';
-  // La vista de lista no construye nodos, aristas ni layouts: solo HTML.
+  // Lista y capturas son HTML puro: no construyen nodos, aristas ni layouts.
   const model = useMemo(() => (isGraph ? buildGraph(scan, t) : null), [isGraph, scan, t]);
   const subnetGroups = useMemo(() => buildSubnetGroups(scan, t), [scan, t]);
   const openPorts = useMemo(
     () => scan.hosts.reduce((total, host) => total + countOpenPorts(host), 0),
     [scan.hosts],
   );
+  const screenshotKeys = useMemo(
+    () => new Set(scan.hosts.filter((host) => forHost(host).length > 0).map((host) => host.key)),
+    [scan.hosts, forHost],
+  );
 
   // En escaneos grandes con pocos hosts interesantes, empezamos filtrados
   // para que el mapa sea legible sin perder el resto (se puede desactivar).
   const initialOnlyWithPorts =
     openPorts > 0 && openPorts / Math.max(scan.hosts.length, 1) <= 0.25;
+  const [onlyWithScreenshots, setOnlyWithScreenshots] = useState(false);
   const [baseNodes, setBaseNodes] = useState<EntityNode[]>(() =>
     model ? layoutGraph(model, layoutMode, { onlyWithPorts: initialOnlyWithPorts }) : [],
   );
@@ -77,7 +85,7 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
     if (!model) return;
     setBaseNodes((current) => {
       if (current.length === 0) {
-        return layoutGraph(model, layoutMode, { onlyWithPorts });
+        return layoutGraph(model, layoutMode, { onlyWithPorts, onlyWithScreenshots, screenshotKeys });
       }
       const freshById = new Map(model.nodes.map((node) => [node.id, node]));
       return current.map((node) => {
@@ -102,16 +110,41 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
   const { getNode, setCenter, fitView } = useReactFlow();
 
+  // Las capturas respetan los mismos filtros que la lista; la búsqueda, además,
+  // puede coincidir con la URL, el título o el puerto de la captura.
+  const captureHosts = useMemo(
+    () => scan.hosts.filter((host) =>
+      (!onlyWithPorts || countOpenPorts(host) > 0) &&
+      (!onlyWithScreenshots || screenshotKeys.has(host.key)),
+    ),
+    [scan.hosts, onlyWithPorts, onlyWithScreenshots, screenshotKeys],
+  );
+  const captureItems = useMemo(
+    () => buildCaptures(captureHosts, t, forHost),
+    [captureHosts, t, forHost],
+  );
+  const captureView = useMemo(
+    () => filterCaptures(captureItems, query),
+    [captureItems, query],
+  );
+
   const view = useMemo(
-    () => (model ? applyView(model, { query, onlyWithPorts }, baseNodes) : null),
-    [model, baseNodes, query, onlyWithPorts],
+    () => (model
+      ? applyView(model, { query, onlyWithPorts, onlyWithScreenshots, screenshotKeys }, baseNodes)
+      : null),
+    [model, baseNodes, query, onlyWithPorts, onlyWithScreenshots, screenshotKeys],
   );
   const searchIndex = useMemo(() => buildHostSearchIndex(scan.hosts), [scan.hosts]);
   const listView = useMemo(
-    () => filterHostList(searchIndex, query, onlyWithPorts),
-    [searchIndex, query, onlyWithPorts],
+    () => filterHostList(searchIndex, query, onlyWithPorts, onlyWithScreenshots, screenshotKeys),
+    [searchIndex, query, onlyWithPorts, onlyWithScreenshots, screenshotKeys],
   );
-  const matchCount = viewMode === 'list' ? listView.matchCount : (view?.matchCount ?? 0);
+  const matchCount =
+    viewMode === 'list'
+      ? listView.matchCount
+      : viewMode === 'screenshots'
+        ? captureView.length
+        : (view?.matchCount ?? 0);
 
   const onNodesChange = useCallback((changes: NodeChange<EntityNode>[]) => {
     setBaseNodes((current) => applyNodeChanges(changes, current));
@@ -158,9 +191,10 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
 
   const goHome = useCallback(() => {
     closeCard();
-    if (viewMode === 'list') {
+    if (viewMode === 'list' || viewMode === 'screenshots') {
       setQuery('');
       setOnlyWithPorts(false);
+      setOnlyWithScreenshots(false);
       setExpandedSubnets(new Set());
       setExpandedHosts(new Set());
     } else {
@@ -175,30 +209,52 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
       saveViewMode(mode);
       closeCard();
 
-      if (mode === 'list') {
+      if (mode === 'list' || mode === 'screenshots') {
         // Al volver al grafo se recalcula el layout con la opción elegida.
         setBaseNodes([]);
         return;
       }
 
-      if (model) setBaseNodes(layoutGraph(model, mode, { onlyWithPorts }));
+      if (model) {
+        setBaseNodes(layoutGraph(model, mode, { onlyWithPorts, onlyWithScreenshots, screenshotKeys }));
+      }
       requestAnimationFrame(() =>
         requestAnimationFrame(() => void fitView({ padding: 0.16, duration: 500 })),
       );
     },
-    [viewMode, model, onlyWithPorts, closeCard, fitView],
+    [viewMode, model, onlyWithPorts, onlyWithScreenshots, screenshotKeys, closeCard, fitView],
   );
 
   const changeOnlyWithPorts = useCallback(
     (value: boolean) => {
       setOnlyWithPorts(value);
       if (!model) return;
-      setBaseNodes(layoutGraph(model, layoutMode, { onlyWithPorts: value }));
+      setBaseNodes(layoutGraph(model, layoutMode, {
+        onlyWithPorts: value,
+        onlyWithScreenshots,
+        screenshotKeys,
+      }));
       requestAnimationFrame(() =>
         requestAnimationFrame(() => void fitView({ padding: 0.16, duration: 450 })),
       );
     },
-    [model, layoutMode, fitView],
+    [model, layoutMode, onlyWithScreenshots, screenshotKeys, fitView],
+  );
+
+  const changeOnlyWithScreenshots = useCallback(
+    (value: boolean) => {
+      setOnlyWithScreenshots(value);
+      if (!model) return;
+      setBaseNodes(layoutGraph(model, layoutMode, {
+        onlyWithPorts,
+        onlyWithScreenshots: value,
+        screenshotKeys,
+      }));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => void fitView({ padding: 0.16, duration: 450 })),
+      );
+    },
+    [model, layoutMode, onlyWithPorts, screenshotKeys, fitView],
   );
 
   const focusNode = useCallback(
@@ -213,15 +269,30 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
         closeCard();
       }
       if (onlyWithPorts && host && countOpenPorts(host) === 0) changeOnlyWithPorts(false);
+      if (onlyWithScreenshots && host && !screenshotKeys.has(host.key)) {
+        changeOnlyWithScreenshots(false);
+      }
       centerOn(hostKey ? `host:${hostKey}` : id, 1.05);
     },
-    [isGraph, scan.hosts, onlyWithPorts, changeOnlyWithPorts, centerOn, closeCard],
+    [
+      isGraph, scan.hosts, onlyWithPorts, onlyWithScreenshots, screenshotKeys,
+      changeOnlyWithPorts, changeOnlyWithScreenshots, centerOn, closeCard,
+    ],
   );
 
   const focusMatch = useCallback(() => {
+    if (viewMode === 'screenshots') {
+      const first = captureView[0];
+      if (first) setScrollTo(first.key);
+      return;
+    }
     if (viewMode === 'list') {
       if (onlyWithPorts && listView.hosts.length === 0 && listView.matchCount > 0) {
         changeOnlyWithPorts(false);
+        return;
+      }
+      if (onlyWithScreenshots && listView.hosts.length === 0 && listView.matchCount > 0) {
+        changeOnlyWithScreenshots(false);
         return;
       }
       const first = listView.hosts[0];
@@ -239,9 +310,12 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
   }, [
     viewMode,
     onlyWithPorts,
+    onlyWithScreenshots,
     listView,
+    captureView,
     subnetGroups,
     changeOnlyWithPorts,
+    changeOnlyWithScreenshots,
     view,
     focusNode,
   ]);
@@ -310,9 +384,11 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
           query={query}
           matchCount={matchCount}
           onlyWithPorts={onlyWithPorts}
+          onlyWithScreenshots={onlyWithScreenshots}
           searchRef={searchRef}
           onQuery={setQuery}
           onOnlyWithPorts={changeOnlyWithPorts}
+          onOnlyWithScreenshots={changeOnlyWithScreenshots}
           layoutMode={viewMode}
           onLayoutMode={changeLayout}
           onHome={goHome}
@@ -336,6 +412,12 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
             onToggleHost={(key) => setExpandedHosts((current) => toggleInSet(current, key))}
             onNotesChange={onNotesChange}
             onNotesCommit={onNotesCommit}
+            scrollTo={scrollTo}
+            onScrolled={clearScroll}
+          />
+        ) : viewMode === 'screenshots' ? (
+          <ScreenshotGrid
+            captures={captureView}
             scrollTo={scrollTo}
             onScrolled={clearScroll}
           />

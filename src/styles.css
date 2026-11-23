@@ -460,6 +460,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
     "timing timeout"
     "hosttimeout hosttimeout"
     "ports ports"
+    "gowitness gowitness"
     "options options"
     "command command"
     "error error"
@@ -547,6 +548,18 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .scan-field-timeout { grid-area: timeout; }
 .scan-field-hosttimeout { grid-area: hosttimeout; }
 .scan-field-ports { grid-area: ports; }
+.scan-gowitness {
+  grid-area: gowitness;
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 9px 11px; border-radius: 8px;
+  background: rgba(var(--accent-rgb), .05);
+  border: 1px solid var(--border-soft);
+}
+.scan-gowitness label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); cursor: pointer; }
+.scan-gowitness input { accent-color: var(--accent); }
+.scan-gowitness small { font-size: 10.5px; color: var(--muted); }
+.scan-gowitness code { font-family: 'DM Mono', monospace; font-size: 10.5px; color: var(--text-strong); }
+.scan-gowitness-warning { color: var(--amber); }
 .target-row { display: flex; align-items: center; gap: 8px; }
 .target-row .scan-input { flex: 1; min-width: 0; }
 .ipcalc-toggle { height: 38px; padding: 0 12px; white-space: nowrap; font-size: 12px; }
@@ -738,6 +751,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
       "status status status status"
       "target target profile timing"
       "ports ports timeout hosttimeout"
+      "gowitness gowitness gowitness gowitness"
       "options options options options"
       "command command command command"
       "error error error error"
@@ -761,6 +775,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
       "timeout"
       "hosttimeout"
       "ports"
+      "gowitness"
       "options"
       "command"
       "error"
@@ -826,6 +841,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   border-radius: 8px; border: 1px solid var(--border);
   background: var(--surface-2); color: var(--muted);
   font-size: 11.5px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 .chip-toggle:hover { border-color: var(--border-hover); color: var(--text); }
 .chip-toggle.active {
@@ -927,6 +943,60 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .host-list-detail .host-details { margin: 0; }
+
+/* ---------- Capturas (HTML, sin React Flow) ---------- */
+.capture-grid {
+  flex: 1; min-width: 0; min-height: 0;
+  padding: 70px 18px 28px;
+  overflow-y: auto;
+}
+.capture-grid::-webkit-scrollbar { width: 9px; }
+.capture-grid::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
+.capture-grid-inner { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.capture-empty {
+  padding: 28px; text-align: center; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--border); border-radius: 10px;
+}
+.capture-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px;
+}
+.capture-card {
+  min-width: 0; display: flex; flex-direction: column; gap: 8px;
+  padding: 9px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); box-shadow: var(--shadow-sm);
+  content-visibility: auto; contain-intrinsic-size: auto 220px;
+}
+.capture-card:hover { border-color: var(--accent-dark); }
+.capture-card-image {
+  display: flex; justify-content: center; align-items: center;
+  min-height: 90px; border-radius: 6px; background: var(--inset-bg);
+  overflow: hidden;
+}
+.capture-card-image img {
+  display: block; width: auto; height: auto;
+  max-width: 100%; max-height: 180px; object-fit: contain;
+}
+.capture-card-body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.capture-card-head { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.capture-card-head strong {
+  min-width: 0; font-size: 12px; color: var(--text-strong);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.capture-card-port {
+  flex: 0 0 auto; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent);
+}
+.capture-card-code {
+  flex: 0 0 auto; margin-left: auto; padding: 1px 5px;
+  border-radius: 4px; background: var(--surface-3); font-size: 9.5px; color: var(--muted);
+}
+.capture-card-title {
+  font-size: 10.5px; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.capture-card-url {
+  font-size: 9.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 @media (max-width: 900px) {
   .host-list-note { display: none; }
   .host-list-subnet-meta { font-size: 9.5px; }
@@ -1082,6 +1152,25 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .host-script { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .host-script strong { font-size: 10.5px; color: var(--accent); }
 .host-script code { font-size: 9.5px; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+.host-screenshots { display: flex; flex-direction: column; gap: 6px; }
+.host-screenshot {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  padding: 5px; border: 1px solid var(--border-soft); border-radius: 7px;
+  background: var(--inset-bg); text-decoration: none;
+}
+.host-screenshot:hover { border-color: var(--accent); }
+.host-screenshot img {
+  display: block; width: auto; height: auto;
+  max-width: 100%; max-height: 200px; object-fit: contain;
+  align-self: center; border-radius: 5px; background: var(--surface-2);
+}
+.host-screenshot > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.host-screenshot strong { font-size: 10px; color: var(--accent); }
+.host-screenshot span span { font-size: 10px; color: var(--text); }
+.host-screenshot code {
+  font-size: 9px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .port-row {
   display: grid; grid-template-columns: 68px 72px minmax(0, 1fr);
   align-items: center; gap: 8px;
@@ -1219,6 +1308,9 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 @media (max-width: 1350px) {
   .layout-switch button span { display: none; }
 }
+@media (max-width: 1100px) {
+  .chip-screenshots span { display: none; }
+}
 @media (max-width: 820px) {
   .app-header { height: auto; flex-basis: auto; padding: 12px 16px; flex-wrap: wrap; }
   .header-right { width: 100%; justify-content: space-between; }
@@ -1227,6 +1319,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   .graph-area { flex: 1; padding-top: 0; min-height: 62vh; }
   .toolbar-actions { flex-wrap: wrap; }
   .search-box { width: 210px; }
+  .capture-cards { grid-template-columns: 1fr; }
   .scan-grid, .scan-option-grid { grid-template-columns: 1fr; }
   .upload-view { padding-top: 40px; }
 }

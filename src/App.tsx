@@ -4,12 +4,14 @@ import type { NmapScan } from './types';
 import { parseNmapXml } from './parser/nmapXml';
 import { forgetHostNotes, hostNotesKey, loadHostNotes, saveHostNotes } from './notes';
 import { useI18n } from './i18n/I18nProvider';
+import { useScreenshots } from './screenshots';
 import RenameScan from './components/RenameScan';
 import UploadView from './components/UploadView';
 import Workspace from './components/Workspace';
 
 export default function App() {
   const { t, locale, formatNumber, formatDateTime } = useI18n();
+  const { refresh: refreshScreenshots } = useScreenshots();
   const [scan, setScan] = useState<NmapScan | null>(null);
   const [hideWarning, setHideWarning] = useState(false);
   const [uploadKey, setUploadKey] = useState(0);
@@ -60,6 +62,7 @@ export default function App() {
     }
 
     setScan({ ...parsed, warnings: [...extraWarnings, ...parsed.warnings] });
+    void refreshScreenshots();
     setHideWarning(false);
     setRenamingScan(false);
     setViewKey((key) => key + 1);

@@ -1,7 +1,10 @@
 import http from 'node:http';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { ValidationError, cancelScan, deleteAllScans, deleteScan, getNmapVersion, listScans, readScan, renameScan, runNmap, saveUploadedScan } from './nmap.mjs';
 import { updateHostNote } from './notes.mjs';
 import { calculateRange, getIpcCalcVersion } from './ipcalc.mjs';
+import { getGowitnessVersion, readScreenshotIndex, screenshotDir } from './gowitness.mjs';
 import { serveStatic } from './static.mjs';
 
 const MAX_BODY = 1024 * 1024;
@@ -17,6 +20,24 @@ function sendJson(res, status, payload) {
 function sendText(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/xml; charset=utf-8' });
   res.end(body);
+}
+
+const IMAGE_MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
+
+async function sendScreenshot(res, config, file) {
+  if (typeof file !== 'string' || path.basename(file) !== file || !IMAGE_MIME[path.extname(file).toLowerCase()]) {
+    return sendJson(res, 400, { error: 'Imagen no válida.' });
+  }
+  try {
+    const body = await readFile(path.join(screenshotDir(config), file));
+    res.writeHead(200, {
+      'Content-Type': IMAGE_MIME[path.extname(file).toLowerCase()],
+      'Cache-Control': 'no-store',
+    });
+    return res.end(body);
+  } catch {
+    return sendJson(res, 404, { error: 'Captura no encontrada.' });
+  }
 }
 
 async function readJson(req) {
@@ -44,10 +65,11 @@ export function createServer(config) {
 
     try {
       if (pathname === '/api/status' && req.method === 'GET') {
-        const [version, ipcalcVersion, scans] = await Promise.all([
+        const [version, ipcalcVersion, scans, gowitnessVersion] = await Promise.all([
           getNmapVersion(config),
           getIpcCalcVersion(config),
           listScans(config.scansDir),
+          getGowitnessVersion(config),
         ]);
         const command = config.nmapCommand ?? ['nmap'];
         return sendJson(res, 200, {
@@ -61,6 +83,9 @@ export function createServer(config) {
           savedScans: scans.length,
           ipcalcAvailable: Boolean(ipcalcVersion),
           ipcalcVersion,
+          gowitnessAvailable: Boolean(gowitnessVersion),
+          gowitnessVersion,
+          screenshotsDir: screenshotDir(config),
         });
       }
 
@@ -122,6 +147,17 @@ export function createServer(config) {
         const id = url.searchParams.get('id') ?? '';
         const entry = /^[A-Za-z0-9_-]{1,80}$/.test(id) ? activeScans.get(id) : null;
         return sendJson(res, 200, entry ? { ok: true, ...entry.stats } : { ok: false });
+      }
+
+      if (pathname === '/api/screenshots' && req.method === 'GET') {
+        return sendJson(res, 200, {
+          screenshots: await readScreenshotIndex(config),
+          dir: screenshotDir(config),
+        });
+      }
+
+      if (pathname === '/api/screenshots/image' && req.method === 'GET') {
+        return await sendScreenshot(res, config, url.searchParams.get('file'));
       }
 
       if (pathname === '/api/ipcalc' && req.method === 'POST') {

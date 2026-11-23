@@ -125,6 +125,16 @@ export interface NmapScan {
   warnings: string[];
 }
 
+/** Captura de gowitness, indexada por `ip:puerto` (o `host:puerto`). */
+export interface HostScreenshot {
+  file: string;
+  url: string;
+  title: string;
+  code: number;
+}
+
+export type ScreenshotIndex = Record<string, HostScreenshot>;
+
 export interface ApiStatus {
   ok: boolean;
   nmapAvailable: boolean;
@@ -136,6 +146,9 @@ export interface ApiStatus {
   savedScans: number;
   ipcalcAvailable: boolean;
   ipcalcVersion: string | null;
+  gowitnessAvailable: boolean;
+  gowitnessVersion: string | null;
+  screenshotsDir: string;
 }
 
 export interface IpcCalcResult {
@@ -168,5 +181,6 @@ export interface ScanResult {
   exitCode: number | null;
   stderr: string;
   savedAs: string | null;
+  gowitness: string | null;
   timeoutMs: number;
 }

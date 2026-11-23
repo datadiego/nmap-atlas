@@ -449,6 +449,11 @@ export default function ScanForm({ status, onLoad }: Props) {
       ? rememberedForm.hostTimeout
       : DEFAULT_FORM_VALUES.hostTimeout,
   );
+  const [gowitness, setGowitness] = useState(() =>
+    remember.gowitness && typeof rememberedForm.gowitness === 'boolean'
+      ? rememberedForm.gowitness
+      : DEFAULT_FORM_VALUES.gowitness,
+  );
   const [scanId, setScanId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ScanProgress>({
     bytes: 0,
@@ -586,8 +591,9 @@ export default function ScanForm({ status, onLoad }: Props) {
     if (remember.hostTimeout) saved.hostTimeout = hostTimeoutMs;
     if (remember.timing) saved.timing = timing;
     if (remember.options) saved.options = effectiveOptions;
+    if (remember.gowitness) saved.gowitness = gowitness;
     saveRememberedForm(remember, saved);
-  }, [remember, target, ports, profile, timeoutMs, hostTimeoutMs, timing, effectiveOptions]);
+  }, [remember, target, ports, profile, timeoutMs, hostTimeoutMs, timing, effectiveOptions, gowitness]);
 
   const showOptionTooltip = (option: ScanOption, element: HTMLElement) => {
     if (tooltipTimer.current !== null) {
@@ -737,6 +743,7 @@ export default function ScanForm({ status, onLoad }: Props) {
           command,
           timeoutMs: timeoutMs || undefined,
           hostTimeoutMs: hostTimeoutMs || undefined,
+          gowitness,
           id,
         }),
       });
@@ -750,6 +757,9 @@ export default function ScanForm({ status, onLoad }: Props) {
         warnings.push(t('scan.warningCancelled'));
       } else if (result.exitCode !== 0) {
         warnings.push(t('scan.warningExit', { code: result.exitCode ?? 0 }));
+      }
+      if (gowitness && result.gowitness) {
+        warnings.push(t('scan.gowitnessResult', { message: result.gowitness }));
       }
       onLoad(result.xml, result.savedAs ?? `nmap ${target}.xml`, warnings);
       playSuccessSound();
@@ -929,6 +939,27 @@ export default function ScanForm({ status, onLoad }: Props) {
             }
           }}
         />
+      </div>
+
+      <div className="scan-gowitness">
+        <label>
+          <input
+            type="checkbox"
+            checked={gowitness}
+            onChange={(event) => setGowitness(event.target.checked)}
+          />
+          <span>{t('scan.gowitness')}</span>
+        </label>
+        <small>{t('scan.gowitnessHelp')}</small>
+        {gowitness && status?.saving === false && (
+          <small className="scan-gowitness-warning">{t('scan.gowitnessNoSave')}</small>
+        )}
+        {gowitness && status && !status.gowitnessAvailable && (
+          <small className="scan-gowitness-warning">{t('scan.gowitnessMissing')}</small>
+        )}
+        {gowitness && status?.gowitnessAvailable && (
+          <small><code>{status.screenshotsDir}</code></small>
+        )}
       </div>
 
       <fieldset className="scan-options">

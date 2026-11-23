@@ -241,6 +241,8 @@ export function buildGraph(scan: NmapScan, t: TFunction = tGlobal): GraphModel {
 export interface ViewOptions {
   query: string;
   onlyWithPorts: boolean;
+  onlyWithScreenshots?: boolean;
+  screenshotKeys?: Set<string>;
 }
 
 /** Deriva los nodos/aristas visibles y el resaltado de búsqueda. */
@@ -254,17 +256,17 @@ export function applyView(model: GraphModel, options: ViewOptions, sourceNodes?:
     if (type === 'port' || type === 'extra') hidden.add(node.id);
   });
 
-  if (options.onlyWithPorts) {
-    const emptyHosts = model.nodes.filter((node) => {
-      if (node.data.entity.type !== 'host') return false;
-      return openPortCount(node.data.entity.host) === 0;
-    });
-    emptyHosts.forEach((host) => {
-      hidden.add(host.id);
+  if (options.onlyWithPorts || options.onlyWithScreenshots) {
+    const keepHost = (host: NmapHost) =>
+      (!options.onlyWithPorts || openPortCount(host) > 0) &&
+      (!options.onlyWithScreenshots || Boolean(options.screenshotKeys?.has(host.key)));
+    model.nodes.forEach((node) => {
+      if (node.data.entity.type === 'host' && !keepHost(node.data.entity.host)) {
+        hidden.add(node.id);
+      }
     });
     model.subnets.forEach((subnet) => {
-      const visibleHosts = subnet.hosts.filter((host) => openPortCount(host) > 0);
-      if (visibleHosts.length === 0) hidden.add(subnet.id);
+      if (!subnet.hosts.some(keepHost)) hidden.add(subnet.id);
     });
   }
 

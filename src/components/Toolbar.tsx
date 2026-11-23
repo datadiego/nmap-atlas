@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 import {
+  Camera,
   ChevronsDownUp,
   ChevronsUpDown,
   GitBranch,
@@ -25,9 +26,11 @@ interface Props {
   query: string;
   matchCount: number;
   onlyWithPorts: boolean;
+  onlyWithScreenshots: boolean;
   searchRef: RefObject<HTMLInputElement>;
   onQuery: (value: string) => void;
   onOnlyWithPorts: (value: boolean) => void;
+  onOnlyWithScreenshots: (value: boolean) => void;
   onHome: () => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
@@ -46,9 +49,11 @@ export default function Toolbar({
   query,
   matchCount,
   onlyWithPorts,
+  onlyWithScreenshots,
   searchRef,
   onQuery,
   onOnlyWithPorts,
+  onOnlyWithScreenshots,
   onHome,
   onExpandAll,
   onCollapseAll,
@@ -59,6 +64,8 @@ export default function Toolbar({
 }: Props) {
   const { t, formatNumber } = useI18n();
   const isList = layoutMode === 'list';
+  const isCaptures = layoutMode === 'screenshots';
+  const isPlainView = isList || isCaptures;
 
   return (
     <div className="toolbar">
@@ -72,7 +79,7 @@ export default function Toolbar({
         <button
           className="btn-home"
           onClick={onHome}
-          title={isList ? t('toolbar.homeListTitle') : t('toolbar.homeTitle')}
+          title={isPlainView ? t('toolbar.homeListTitle') : t('toolbar.homeTitle')}
         >
           <Home size={15} /> {t('toolbar.home')}
         </button>
@@ -102,6 +109,14 @@ export default function Toolbar({
         >
           {t('toolbar.onlyOpen')}
         </button>
+        <button
+          className={`chip-toggle chip-screenshots ${onlyWithScreenshots ? 'active' : ''}`}
+          onClick={() => onOnlyWithScreenshots(!onlyWithScreenshots)}
+          title={t('toolbar.onlyScreenshotsTitle')}
+          aria-pressed={onlyWithScreenshots}
+        >
+          <Camera size={13} /> <span>{t('toolbar.onlyScreenshots')}</span>
+        </button>
         <div className="toolbar-divider" />
 
         <div className="layout-switch" role="group" aria-label={t('toolbar.viewMode')}>
@@ -123,24 +138,34 @@ export default function Toolbar({
             title={t('toolbar.listTitle')}
             aria-pressed={isList}
           ><List size={14} /><span>{t('toolbar.list')}</span></button>
+          <button
+            className={isCaptures ? 'active' : ''}
+            onClick={() => onLayoutMode('screenshots')}
+            title={t('toolbar.capturesTitle')}
+            aria-pressed={isCaptures}
+          ><Camera size={14} /><span>{t('toolbar.captures')}</span></button>
         </div>
 
-        <button
-          className="icon-button"
-          onClick={onExpandAll}
-          title={isList ? t('toolbar.expandList') : t('toolbar.expandAll')}
-        >
-          <ChevronsUpDown size={16} />
-        </button>
-        <button
-          className="icon-button"
-          onClick={onCollapseAll}
-          title={isList ? t('toolbar.collapseList') : t('toolbar.collapseAll')}
-        >
-          <ChevronsDownUp size={16} />
-        </button>
+        {!isCaptures && (
+          <>
+            <button
+              className="icon-button"
+              onClick={onExpandAll}
+              title={isList ? t('toolbar.expandList') : t('toolbar.expandAll')}
+            >
+              <ChevronsUpDown size={16} />
+            </button>
+            <button
+              className="icon-button"
+              onClick={onCollapseAll}
+              title={isList ? t('toolbar.collapseList') : t('toolbar.collapseAll')}
+            >
+              <ChevronsDownUp size={16} />
+            </button>
+          </>
+        )}
 
-        {!isList && (
+        {!isPlainView && (
           <>
             <button className="icon-button" onClick={onFit} title={t('toolbar.fit')}>
               <Maximize2 size={16} />

@@ -2,6 +2,7 @@ node_modules/
 dist/
 nmap-atlas
 scans/
+screenshots/
 /casa.*
 *.tsbuildinfo
 *.local

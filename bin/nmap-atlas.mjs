@@ -24,6 +24,8 @@ Opciones:
       --nmap-sudo            Ejecutar nmap con «sudo -n» (requiere NOPASSWD)
       --nmap-command <cmd>   Prefijo completo, por defecto «nmap»
       --ipcalc-command <cmd> Ruta a ipcalc, por defecto «ipcalc»
+      --gowitness-command <cmd>  Ruta a gowitness, por defecto «gowitness»
+      --gowitness-dir <ruta>     Dónde guardar las capturas (por defecto ./screenshots)
       --help                 Mostrar esta ayuda
 
 Ejemplos:
@@ -37,6 +39,7 @@ const config = {
   host: '127.0.0.1',
   port: 4173,
   scansDir: path.resolve(process.cwd(), 'scans'),
+  screenshotsDir: path.resolve(process.cwd(), 'screenshots'),
   distDir: embeddedDist && existsSync(embeddedDist)
     ? embeddedDist
     : path.resolve(process.cwd(), 'dist'),
@@ -46,6 +49,10 @@ const config = {
   cwd: process.cwd(),
   nmapCommand: (process.env.NMAP_ATLAS_NMAP_COMMAND ?? 'nmap').trim().split(/\s+/).filter(Boolean),
   ipcalcCommand: process.env.NMAP_ATLAS_IPCALC_COMMAND?.trim() || 'ipcalc',
+  gowitnessCommand: process.env.NMAP_ATLAS_GOWITNESS_COMMAND?.trim() || 'gowitness',
+  gowitnessDir: process.env.NMAP_ATLAS_GOWITNESS_DIR?.trim()
+    ? path.resolve(process.cwd(), process.env.NMAP_ATLAS_GOWITNESS_DIR.trim())
+    : null,
 };
 
 const args = process.argv.slice(2);
@@ -87,6 +94,12 @@ for (let index = 0; index < args.length; index += 1) {
     case '--ipcalc-command':
       config.ipcalcCommand = next().trim() || 'ipcalc';
       break;
+    case '--gowitness-command':
+      config.gowitnessCommand = next().trim() || 'gowitness';
+      break;
+    case '--gowitness-dir':
+      config.gowitnessDir = path.resolve(process.cwd(), next());
+      break;
     default:
       if (arg.startsWith('--port=')) config.port = Number(arg.slice(7));
       else if (arg.startsWith('--host=')) config.host = arg.slice(7);
@@ -98,6 +111,12 @@ for (let index = 0; index < args.length; index += 1) {
       }
       else if (arg.startsWith('--ipcalc-command=')) {
         config.ipcalcCommand = arg.slice(17).trim() || 'ipcalc';
+      }
+      else if (arg.startsWith('--gowitness-command=')) {
+        config.gowitnessCommand = arg.slice(20).trim() || 'gowitness';
+      }
+      else if (arg.startsWith('--gowitness-dir=')) {
+        config.gowitnessDir = path.resolve(process.cwd(), arg.slice(16));
       }
       else {
         console.error(`Opción desconocida: ${arg}\n${HELP}`);
@@ -134,6 +153,7 @@ server.listen(config.port, config.host, () => {
   console.log(`Vista web: ${embeddedDist ? 'incrustada en el binario' : config.distDir}`);
   console.log(`nmap: ${config.nmapCommand.join(' ')}`);
   console.log(`ipcalc: ${config.ipcalcCommand}`);
+  console.log(`gowitness: ${config.gowitnessCommand} → ${config.gowitnessDir ?? config.screenshotsDir}`);
   console.log(`Tiempo por host: ${config.hostTimeoutMs ? `${config.hostTimeoutMs} ms` : 'sin límite'}`);
   console.log(`XML guardados en ${config.scansDir}${config.save ? '' : ' (desactivado)'}`);
   console.log('Pulsa Ctrl+C para detener.');

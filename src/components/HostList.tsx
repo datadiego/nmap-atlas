@@ -80,15 +80,18 @@ export function filterHostList(
   index: HostSearchEntry[],
   query: string,
   onlyWithPorts: boolean,
+  onlyWithScreenshots = false,
+  screenshotKeys: Set<string> = new Set(),
 ): HostListResult {
   const needle = query.trim().toLowerCase();
   const matched = needle
     ? index.filter((entry) => entry.text.includes(needle)).map((entry) => entry.host)
     : index.map((entry) => entry.host);
   const matchedKeys = new Set(matched.map((host) => host.key));
-  const visible = onlyWithPorts
-    ? matched.filter((host) => countOpenPorts(host) > 0)
-    : matched;
+  const visible = matched.filter((host) =>
+    (!onlyWithPorts || countOpenPorts(host) > 0) &&
+    (!onlyWithScreenshots || screenshotKeys.has(host.key)),
+  );
   return { hosts: visible, matchedKeys, matchCount: matchedKeys.size };
 }
 
