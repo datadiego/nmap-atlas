@@ -1,0 +1,54 @@
+name: Build binario y publicar release
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Preparar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar binario
+        run: npm run binary
+
+      - name: Determinar tag de la release
+        id: release
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG="v$VERSION"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar binario en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: Nmap Atlas ${{ steps.release.outputs.tag }}
+          files: nmap-atlas
+          generate_release_notes: true
+          overwrite_files: true
