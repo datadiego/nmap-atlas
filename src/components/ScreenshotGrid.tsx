@@ -62,9 +62,10 @@ interface Props {
   captures: CaptureItem[];
   scrollTo: string | null;
   onScrolled: () => void;
+  onOpenHost: (hostKey: string) => void;
 }
 
-export default function ScreenshotGrid({ captures, scrollTo, onScrolled }: Props) {
+export default function ScreenshotGrid({ captures, scrollTo, onScrolled, onOpenHost }: Props) {
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +90,22 @@ export default function ScreenshotGrid({ captures, scrollTo, onScrolled }: Props
               key={capture.key}
               data-capture-key={capture.key}
               data-host-key={capture.hostKey}
+              role="button"
+              tabIndex={0}
+              aria-label={t('captures.openHost')}
+              title={t('captures.openHost')}
+              onClick={(event) => {
+                // La imagen sigue abriendo la captura completa en otra pestaña.
+                if ((event.target as HTMLElement).closest('a')) return;
+                onOpenHost(capture.hostKey);
+              }}
+              onKeyDown={(event) => {
+                if ((event.target as HTMLElement).closest('a')) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpenHost(capture.hostKey);
+                }
+              }}
             >
               <a
                 className="capture-card-image"

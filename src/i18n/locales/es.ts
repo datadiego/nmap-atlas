@@ -257,6 +257,7 @@ export const es = {
 
   'captures.empty': 'No hay capturas. Activa «Capturar pantallas HTTP con gowitness» al escanear.',
   'captures.open': 'Abrir captura a tamaño completo',
+  'captures.openHost': 'Ver los detalles de este host en la lista',
 
   'list.empty': 'No hay hosts que coincidan con la búsqueda o el filtro.',
   'list.expandHost': 'Mostrar puertos y detalles de {name}',

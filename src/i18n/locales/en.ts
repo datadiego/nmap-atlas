@@ -259,6 +259,7 @@ export const en: Translation = {
 
   'captures.empty': 'No screenshots yet. Enable “Capture HTTP screens with gowitness” when scanning.',
   'captures.open': 'Open screenshot at full size',
+  'captures.openHost': 'View this host details in the list',
 
   'list.empty': 'No hosts match the search or the filter.',
   'list.expandHost': 'Show ports and details for {name}',
