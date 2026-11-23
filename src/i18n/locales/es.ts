@@ -237,7 +237,7 @@ export const es = {
   'toolbar.onlyOpen': 'Solo con abiertos',
   'toolbar.onlyOpenTitle': 'Mostrar únicamente hosts con puertos abiertos',
   'toolbar.onlyScreenshots': 'Solo con capturas',
-  'toolbar.onlyScreenshotsTitle': 'Mostrar únicamente hosts con capturas de gowitness',
+  'toolbar.onlyScreenshotsTitle': 'Mostrar únicamente hosts con capturas correctas de gowitness',
   'toolbar.grid': 'Rejilla',
   'toolbar.gridTitle': 'Vista de cuadrícula por subred',
   'toolbar.tree': 'Árbol',

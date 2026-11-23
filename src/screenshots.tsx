@@ -40,6 +40,9 @@ export function ScreenshotsProvider({ children }: { children: ReactNode }) {
       const found: Array<{ key: string; port: string; shot: HostScreenshot }> = [];
       const seen = new Set<string>();
       for (const [key, shot] of Object.entries(screenshots)) {
+        // Los índices antiguos pueden incluir páginas de error: no cuentan
+        // como captura realizada ni activan el filtro del toolbar.
+        if (shot.code < 200 || shot.code >= 400) continue;
         const at = key.lastIndexOf(':');
         const hostPart = key.slice(0, at);
         const port = key.slice(at + 1);

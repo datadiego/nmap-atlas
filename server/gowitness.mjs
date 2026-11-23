@@ -179,7 +179,10 @@ export async function captureHttpScreenshots(xmlPath, config) {
       for (const line of lines) {
         let result;
         try { result = JSON.parse(line); } catch { continue; }
-        if (!result.file_name || result.failed || result.response_code === 0) continue;
+        // Solo contamos como captura realizada una respuesta HTTP correcta;
+        // las páginas de error no deben activar el filtro «Solo con capturas».
+        const ok = result.response_code >= 200 && result.response_code < 400;
+        if (!result.file_name || result.failed || !ok) continue;
         const key = urlKey(result.url ?? result.final_url);
         if (!key) continue;
         const url = result.url ?? result.final_url ?? '';
@@ -189,10 +192,9 @@ export async function captureHttpScreenshots(xmlPath, config) {
           title: result.title ?? '',
           code: result.response_code,
         };
-        // gowitness prueba http y https para el mismo puerto: nos quedamos
-        // con la respuesta con éxito y, si ambas lo son, con http.
-        const score = (entry) =>
-          (entry.code >= 200 && entry.code < 400 ? 100 : 0) + (entry.url.startsWith('http://') ? 1 : 0);
+        // gowitness prueba http y https para el mismo puerto: si ambas funcionan,
+        // nos quedamos con http.
+        const score = (entry) => (entry.url.startsWith('http://') ? 1 : 0);
         captured += 1;
         if (!index[key] || score(shot) > score(index[key])) index[key] = shot;
       }

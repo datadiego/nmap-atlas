@@ -239,7 +239,7 @@ export const en: Translation = {
   'toolbar.onlyOpen': 'Only with open ports',
   'toolbar.onlyOpenTitle': 'Show only hosts with open ports',
   'toolbar.onlyScreenshots': 'Screenshots only',
-  'toolbar.onlyScreenshotsTitle': 'Show only hosts with gowitness screenshots',
+  'toolbar.onlyScreenshotsTitle': 'Show only hosts with successful gowitness screenshots',
   'toolbar.grid': 'Grid',
   'toolbar.gridTitle': 'Grid view by subnet',
   'toolbar.tree': 'Tree',
