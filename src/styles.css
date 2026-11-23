@@ -1016,7 +1016,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 }
 .kind-scan { width: 250px; height: 104px; }
 .kind-subnet { width: 220px; height: 86px; }
-.kind-host { width: 234px; height: 92px; }
+.kind-host { width: 234px; height: auto; min-height: 92px; }
 .kind-port, .kind-extra { width: 236px; height: 82px; }
 .kind-extra { height: 76px; }
 .node-icon {
@@ -1030,10 +1030,11 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .kind-extra .node-icon { background: rgba(var(--muted-rgb), .1); color: var(--muted); }
 .kind-subnet .node-icon { background: rgba(var(--pink-rgb), .12); color: var(--pink); }
 .node-content { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.node-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.node-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
 .node-label {
+  min-width: 0;
   font-size: 12.5px; font-weight: 600; color: var(--text-strong);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.3; overflow-wrap: anywhere;
 }
 .node-subtitle {
   font-size: 10.5px; color: var(--muted); line-height: 1.35;

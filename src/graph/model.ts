@@ -51,7 +51,7 @@ export interface GraphModel {
 export const NODE_SIZES: Record<NodeKind, { width: number; height: number }> = {
   scan: { width: 250, height: 104 },
   subnet: { width: 220, height: 86 },
-  host: { width: 234, height: 92 },
+  host: { width: 234, height: 110 },
   port: { width: 236, height: 82 },
   extra: { width: 236, height: 76 },
   group: { width: 1, height: 1 },
@@ -160,12 +160,13 @@ export function buildGraph(scan: NmapScan, t: TFunction = tGlobal): GraphModel {
     const ip = host.addresses.find((a) => a.type === 'ipv4' || a.type === 'ipv6')?.addr ?? '';
     const open = openPortCount(host);
     const osName = host.os[0]?.name || host.osClasses[0]?.osFamily || '';
+    const label = hostLabel(host, t);
     nodes.push(
       makeNode(
         'host',
         hostId,
-        hostLabel(host, t),
-        [ip, osName].filter(Boolean).join(' · ') || host.state,
+        label,
+        [ip === label ? '' : ip, osName].filter(Boolean).join(' · ') || host.state,
         open > 0
           ? t('graph.open', { count: open })
           : host.ports.length
