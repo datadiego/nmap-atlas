@@ -418,7 +418,6 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
           onOnlyWithScreenshots={changeOnlyWithScreenshots}
           layoutMode={viewMode}
           onLayoutMode={changeLayout}
-          onHome={goHome}
           onExpandAll={expandAll}
           onCollapseAll={collapseAll}
           onFit={fit}

@@ -4,7 +4,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   GitBranch,
-  Home,
   LayoutGrid,
   List,
   Map,
@@ -31,7 +30,6 @@ interface Props {
   onQuery: (value: string) => void;
   onOnlyWithPorts: (value: boolean) => void;
   onOnlyWithScreenshots: (value: boolean) => void;
-  onHome: () => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
   onFit: () => void;
@@ -54,7 +52,6 @@ export default function Toolbar({
   onQuery,
   onOnlyWithPorts,
   onOnlyWithScreenshots,
-  onHome,
   onExpandAll,
   onCollapseAll,
   onFit,
@@ -76,14 +73,6 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-actions">
-        <button
-          className="btn-home"
-          onClick={onHome}
-          title={isPlainView ? t('toolbar.homeListTitle') : t('toolbar.homeTitle')}
-        >
-          <Home size={15} /> {t('toolbar.home')}
-        </button>
-
         <div className="search-box">
           <Search size={16} />
           <input
