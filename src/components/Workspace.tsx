@@ -13,6 +13,7 @@ import {
   type NodeTypes,
 } from '@xyflow/react';
 import type { NmapHost, NmapScan } from '../types';
+import { useI18n } from '../i18n/I18nProvider';
 import { GraphActionsContext } from '../graph/actions';
 import { layoutGraph, type LayoutMode } from '../graph/layouts';
 import {
@@ -34,7 +35,8 @@ interface Props {
 }
 
 function WorkspaceInner({ scan }: Props) {
-  const model = useMemo(() => buildGraph(scan), [scan]);
+  const { t } = useI18n();
+  const model = useMemo(() => buildGraph(scan, t), [scan, t]);
   // En escaneos grandes con pocos hosts interesantes, empezamos filtrados
   // para que el mapa sea legible sin perder el resto (se puede desactivar).
   const initialOnlyWithPorts =
@@ -174,7 +176,7 @@ function WorkspaceInner({ scan }: Props) {
   };
   const collapseAll = goHome;
   const activeHostLabel = showAllPorts
-    ? 'Todos los puertos'
+    ? t('workspace.allPorts')
     : activeHost
       ? (model.nodes.find((node) => node.id === activeHost)?.data.label ?? activeHost)
       : null;
@@ -257,7 +259,7 @@ function WorkspaceInner({ scan }: Props) {
             )}
             {activeHostLabel && (
               <Panel position="top-left" className="breadcrumb-panel">
-                <button onClick={goHome}>← Escaneo</button>
+                <button onClick={goHome}>{t('workspace.backToScan')}</button>
                 <span>/</span>
                 <strong>{activeHostLabel}</strong>
               </Panel>

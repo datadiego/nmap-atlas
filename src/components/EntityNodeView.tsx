@@ -1,6 +1,7 @@
 import { useContext } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Boxes, ChevronDown, ChevronRight, Layers3, Network, ScanLine, Server, SquareStack } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
 import { GraphActionsContext } from '../graph/actions';
 import type { EntityNode as EntityNodeType, NodeKind } from '../graph/model';
 
@@ -14,6 +15,7 @@ const icons: Record<NodeKind, typeof Server> = {
 };
 
 export default function EntityNodeView({ data, selected }: NodeProps<EntityNodeType>) {
+  const { t } = useI18n();
   const { activeHost, childrenByHost, toggleHost } = useContext(GraphActionsContext);
   const Icon = icons[data.kind];
   const childCount = data.entity.type === 'host' ? (childrenByHost[data.id]?.length ?? 0) : 0;
@@ -49,7 +51,7 @@ export default function EntityNodeView({ data, selected }: NodeProps<EntityNodeT
       {childCount > 0 && (
         <button
           className="node-toggle nodrag"
-          title={expanded ? 'Ocultar puertos' : 'Mostrar puertos'}
+          title={expanded ? t('node.hidePorts') : t('node.showPorts')}
           onClick={(event) => { event.stopPropagation(); toggleHost(data.id); }}
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}

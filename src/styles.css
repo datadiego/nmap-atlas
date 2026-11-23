@@ -304,6 +304,8 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   border-top: 1px solid var(--border-soft);
 }
 .options-card-all .scan-check { color: var(--accent); }
+.options-card-field { margin-top: 16px; max-width: 260px; }
+.options-card-field select { cursor: pointer; }
 .scan-status {
   grid-area: status;
   display: flex; align-items: flex-start; gap: 8px;

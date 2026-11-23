@@ -1,17 +1,31 @@
+import type { TranslationKey } from './i18n';
+
 const REMEMBER_KEY = 'nmap-atlas:remember';
 const REMEMBERED_FORM_KEY = 'nmap-atlas:remembered-form';
 
-export const REMEMBER_FIELDS = [
-  { id: 'target', label: 'Objetivo' },
-  { id: 'ports', label: 'Puertos' },
-  { id: 'profile', label: 'Último perfil usado' },
-  { id: 'timeout', label: 'Tiempo límite' },
-  { id: 'hostTimeout', label: 'Tiempo por host' },
-  { id: 'timing', label: 'Velocidad' },
-  { id: 'options', label: 'Opciones adicionales' },
+export const REMEMBER_FIELDS: ReadonlyArray<{
+  id: RememberFieldId;
+  labelKey: TranslationKey;
+}> = [
+  { id: 'target', labelKey: 'remember.target' },
+  { id: 'ports', labelKey: 'remember.ports' },
+  { id: 'profile', labelKey: 'remember.profile' },
+  { id: 'timeout', labelKey: 'remember.timeout' },
+  { id: 'hostTimeout', labelKey: 'remember.hostTimeout' },
+  { id: 'timing', labelKey: 'remember.timing' },
+  { id: 'options', labelKey: 'remember.options' },
 ] as const;
 
-export type RememberField = (typeof REMEMBER_FIELDS)[number]['id'];
+export type RememberFieldId =
+  | 'target'
+  | 'ports'
+  | 'profile'
+  | 'timeout'
+  | 'hostTimeout'
+  | 'timing'
+  | 'options';
+
+export type RememberField = RememberFieldId;
 export type RememberSettings = Record<RememberField, boolean>;
 
 export interface RememberedForm {

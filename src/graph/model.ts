@@ -1,5 +1,6 @@
 import type { Edge, Node } from '@xyflow/react';
 import type { ExtraPortGroup, NmapHost, NmapPort, NmapScan } from '../types';
+import { tGlobal, type TFunction } from '../i18n';
 import { hostLabel, subnetOf } from '../parser/nmapXml';
 
 export type NodeKind = 'scan' | 'subnet' | 'host' | 'port' | 'extra' | 'group';
@@ -103,14 +104,14 @@ function makeEdge(source: string, target: string, state = ''): Edge {
 }
 
 /** Construye el grafo completo (con posiciones) a partir del escaneo parseado. */
-export function buildGraph(scan: NmapScan): GraphModel {
+export function buildGraph(scan: NmapScan, t: TFunction = tGlobal): GraphModel {
   const nodes: EntityNode[] = [];
   const edges: Edge[] = [];
   const childrenByHost: Record<string, string[]> = {};
 
   const subnets = new Map<string, SubnetInfo>();
   scan.hosts.forEach((host) => {
-    const subnetId = `subnet:${subnetOf(host)}`;
+    const subnetId = `subnet:${subnetOf(host, t)}`;
     if (!subnets.has(subnetId)) {
       subnets.set(subnetId, {
         id: subnetId,
@@ -129,9 +130,9 @@ export function buildGraph(scan: NmapScan): GraphModel {
   const scanNode = makeNode(
     'scan',
     'scan',
-    'Escaneo Nmap',
+    t('graph.nmapScan'),
     scan.args || `nmap ${scan.startstr}`,
-    `${scan.hosts.length} hosts`,
+    t('app.hosts', { count: scan.hosts.length }),
     scan.runStats ? 'ok' : '',
     `nmap v${scan.version} · ${scan.startstr}`,
     { type: 'scan', scan },
@@ -144,10 +145,10 @@ export function buildGraph(scan: NmapScan): GraphModel {
         'subnet',
         subnet.id,
         subnet.name,
-        `${subnet.hosts.length} hosts · ${subnet.upHosts} activos`,
-        `${subnet.openPorts} abiertos`,
+        `${t('app.hosts', { count: subnet.hosts.length })} · ${t('graph.active', { count: subnet.upHosts })}`,
+        t('graph.open', { count: subnet.openPorts }),
         subnet.openPorts > 0 ? 'open' : '',
-        'Subred detectada en el escaneo',
+        t('graph.subnetDetected'),
         { type: 'subnet', subnet },
       ),
     );
@@ -163,24 +164,28 @@ export function buildGraph(scan: NmapScan): GraphModel {
       makeNode(
         'host',
         hostId,
-        hostLabel(host),
+        hostLabel(host, t),
         [ip, osName].filter(Boolean).join(' · ') || host.state,
-        open > 0 ? `${open} abiertos` : host.ports.length ? `${host.ports.length} puertos` : 'sin puertos',
+        open > 0
+          ? t('graph.open', { count: open })
+          : host.ports.length
+            ? t('graph.ports', { count: host.ports.length })
+            : t('graph.noPorts'),
         host.state === 'up' ? (open > 0 ? 'open' : 'up') : 'down',
-        [host.reason ? `Razón: ${host.reason}` : '', host.osClasses.flatMap((osClass) => osClass.cpe).join(' ')]
+        [host.reason ? t('graph.reason', { reason: host.reason }) : '', host.osClasses.flatMap((osClass) => osClass.cpe).join(' ')]
           .filter(Boolean)
           .join(' · '),
         { type: 'host', host },
       ),
     );
-    const subnetId = `subnet:${subnetOf(host)}`;
+    const subnetId = `subnet:${subnetOf(host, t)}`;
     edges.push(makeEdge(subnetId, hostId, open > 0 ? 'open' : ''));
 
     childrenByHost[hostId] = [];
     host.ports.forEach((port) => {
       const portId = `port:${host.key}:${port.protocol}:${port.portId}`;
       const service = port.service;
-      const serviceName = service?.name || 'desconocido';
+      const serviceName = service?.name || t('graph.unknown');
       const product = [service?.product, service?.version].filter(Boolean).join(' ');
       nodes.push(
         makeNode(
@@ -190,7 +195,7 @@ export function buildGraph(scan: NmapScan): GraphModel {
           product ? `${serviceName} · ${product}` : serviceName,
           port.state,
           port.state,
-          [port.reason ? `Razón: ${port.reason}` : '', service?.cpe.join(' ')]
+          [port.reason ? t('graph.reason', { reason: port.reason }) : '', service?.cpe.join(' ')]
             .filter(Boolean)
             .join(' · '),
           { type: 'port', host, port },
@@ -206,11 +211,11 @@ export function buildGraph(scan: NmapScan): GraphModel {
         makeNode(
           'extra',
           extraId,
-          `${group.count} puertos ${group.state}`,
+          `${t('graph.ports', { count: group.count })} ${group.state}`,
           group.reasons.map((reason) => `${reason.count} ${reason.reason}`).join(' · '),
-          'resumen',
+          t('graph.summary'),
           group.state,
-          'Puertos no escaneados en detalle',
+          t('graph.extraDetail'),
           { type: 'extra', host, group },
         ),
       );

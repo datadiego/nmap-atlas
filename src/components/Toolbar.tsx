@@ -15,6 +15,7 @@ import {
 import type { NmapScan } from '../types';
 import type { GraphModel } from '../graph/model';
 import type { LayoutMode } from '../graph/layouts';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
   scan: NmapScan;
@@ -55,17 +56,19 @@ export default function Toolbar({
   onToggleMiniMap,
   onFocusMatch,
 }: Props) {
+  const { t, formatNumber } = useI18n();
+
   return (
     <div className="toolbar">
       <div className="toolbar-stats">
-        <div className="stat"><Server size={15} /><strong>{scan.hosts.length}</strong><span>hosts</span></div>
-        <div className="stat"><Network size={15} /><strong>{model.openPorts}</strong><span>abiertos</span></div>
-        <div className="stat"><span className="stat-glyph">◇</span><strong>{model.subnets.length}</strong><span>subredes</span></div>
+        <div className="stat"><Server size={15} /><strong>{formatNumber(scan.hosts.length)}</strong><span>hosts</span></div>
+        <div className="stat"><Network size={15} /><strong>{formatNumber(model.openPorts)}</strong><span>{t('toolbar.open')}</span></div>
+        <div className="stat"><span className="stat-glyph">◇</span><strong>{formatNumber(model.subnets.length)}</strong><span>{t('toolbar.subnets')}</span></div>
       </div>
 
       <div className="toolbar-actions">
-        <button className="btn-home" onClick={onHome} title="Volver al origen y cerrar la ficha de puertos">
-          <Home size={15} /> Inicio
+        <button className="btn-home" onClick={onHome} title={t('toolbar.homeTitle')}>
+          <Home size={15} /> {t('toolbar.home')}
         </button>
 
         <div className="search-box">
@@ -75,12 +78,12 @@ export default function Toolbar({
             value={query}
             onChange={(event) => onQuery(event.target.value)}
             onKeyDown={(event) => { if (event.key === 'Enter') onFocusMatch(); }}
-            placeholder="Buscar IP, host, servicio…  ( / )"
-            aria-label="Buscar en el grafo"
+            placeholder={t('toolbar.searchPlaceholder')}
+            aria-label={t('toolbar.searchAria')}
           />
           {query && <span className="match-count">{matchCount}</span>}
           {query && (
-            <button className="clear-search" onClick={() => onQuery('')} title="Limpiar búsqueda">
+            <button className="clear-search" onClick={() => onQuery('')} title={t('toolbar.clearSearch')}>
               <X size={14} />
             </button>
           )}
@@ -89,38 +92,38 @@ export default function Toolbar({
         <button
           className={`chip-toggle ${onlyWithPorts ? 'active' : ''}`}
           onClick={() => onOnlyWithPorts(!onlyWithPorts)}
-          title="Mostrar únicamente hosts con puertos abiertos"
+          title={t('toolbar.onlyOpenTitle')}
         >
-          Solo con abiertos
+          {t('toolbar.onlyOpen')}
         </button>
         <div className="toolbar-divider" />
-        <div className="layout-switch" role="group" aria-label="Distribución del grafo">
+        <div className="layout-switch" role="group" aria-label={t('toolbar.graphLayout')}>
           <button
             className={layoutMode === 'grid' ? 'active' : ''}
             onClick={() => onLayoutMode('grid')}
-            title="Vista de cuadrícula por subred"
-          ><LayoutGrid size={14} /><span>Rejilla</span></button>
+            title={t('toolbar.gridTitle')}
+          ><LayoutGrid size={14} /><span>{t('toolbar.grid')}</span></button>
           <button
             className={layoutMode === 'hierarchy' ? 'active' : ''}
             onClick={() => onLayoutMode('hierarchy')}
-            title="Vista jerárquica clásica"
-          ><GitBranch size={14} /><span>Árbol</span></button>
+            title={t('toolbar.treeTitle')}
+          ><GitBranch size={14} /><span>{t('toolbar.tree')}</span></button>
         </div>
 
         <div className="toolbar-divider" />
-        <button className="icon-button" onClick={onExpandAll} title="Ver todos los puertos">
+        <button className="icon-button" onClick={onExpandAll} title={t('toolbar.expandAll')}>
           <ChevronsUpDown size={16} />
         </button>
-        <button className="icon-button" onClick={onCollapseAll} title="Cerrar ficha de puertos">
+        <button className="icon-button" onClick={onCollapseAll} title={t('toolbar.collapseAll')}>
           <ChevronsDownUp size={16} />
         </button>
-        <button className="icon-button" onClick={onFit} title="Ajustar vista">
+        <button className="icon-button" onClick={onFit} title={t('toolbar.fit')}>
           <Maximize2 size={16} />
         </button>
         <button
           className={`icon-button ${showMiniMap ? 'active' : ''}`}
           onClick={onToggleMiniMap}
-          title={showMiniMap ? 'Ocultar minimapa' : 'Mostrar minimapa'}
+          title={showMiniMap ? t('toolbar.hideMiniMap') : t('toolbar.showMiniMap')}
           aria-pressed={showMiniMap}
         >
           <Map size={16} />

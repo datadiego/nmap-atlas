@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Calculator, LoaderCircle, Play, Terminal, X } from 'lucide-react';
 import type { ApiStatus, ScanResult } from '../types';
 import { playSuccessSound } from '../audio';
+import { useI18n } from '../i18n/I18nProvider';
+import type { TranslationKey } from '../i18n';
 import {
   DEFAULT_FORM_VALUES,
   loadRememberedForm,
@@ -25,8 +27,8 @@ interface ScanProgress {
 
 interface ScanOption {
   flag: string;
-  label: string;
-  doc: string;
+  labelKey: TranslationKey;
+  docKey: TranslationKey;
   docsUrl: string;
 }
 
@@ -38,135 +40,135 @@ interface OptionTooltip {
 }
 
 const PROFILES = [
-  { id: 'quick', label: 'Rápido', flags: ['-F', '--open'], hint: '100 puertos comunes, solo abiertos' },
-  { id: 'hosts', label: 'Detectar hosts', flags: ['-sn', '-n', '--max-retries=1'], hint: 'Descubrimiento rápido, sin escanear puertos' },
-  { id: 'service', label: 'Servicios', flags: ['-sV', '-sC', '--open'], hint: 'Versión + scripts NSE' },
-  { id: 'full', label: 'Completo', flags: ['-sV', '-sC', '-O', '-p-'], hint: 'Todos los puertos + SO' },
-  { id: 'custom', label: 'Personalizado', flags: [], hint: 'Solo las opciones marcadas' },
+  { id: 'quick', labelKey: 'profile.quick', flags: ['-F', '--open'], hintKey: 'profile.quickHint' },
+  { id: 'hosts', labelKey: 'profile.hosts', flags: ['-sn', '-n', '--max-retries=1'], hintKey: 'profile.hostsHint' },
+  { id: 'service', labelKey: 'profile.service', flags: ['-sV', '-sC', '--open'], hintKey: 'profile.serviceHint' },
+  { id: 'full', labelKey: 'profile.full', flags: ['-sV', '-sC', '-O', '-p-'], hintKey: 'profile.fullHint' },
+  { id: 'custom', labelKey: 'profile.custom', flags: [], hintKey: 'profile.customHint' },
 ] as const;
 
-const OPTION_GROUPS: { title: string; options: ScanOption[] }[] = [
+const OPTION_GROUPS: { titleKey: TranslationKey; options: ScanOption[] }[] = [
   {
-    title: 'Técnica de escaneo',
+    titleKey: 'group.scanTechnique',
     options: [
       {
-        flag: '-sS', label: 'SYN (requiere root)',
-        doc: 'Escaneo TCP SYN (half-open): envía un SYN sin completar la conexión. Es rápido, discreto y distingue puertos abiertos, cerrados y filtrados. Necesita permisos para enviar paquetes crudos.',
+        flag: '-sS', labelKey: 'option.sS.label',
+        docKey: 'option.sS.doc',
         docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
       },
       {
-        flag: '-sT', label: 'Connect TCP',
-        doc: 'Escaneo TCP connect(): usa la llamada connect del sistema operativo. Es la alternativa cuando no puedes enviar paquetes crudos, aunque es más lento y los equipos suelen registrar la conexión.',
+        flag: '-sT', labelKey: 'option.sT.label',
+        docKey: 'option.sT.doc',
         docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
       },
       {
-        flag: '-sU', label: 'UDP',
-        doc: 'Escaneo UDP: envía datagramas y clasifica los puertos según las respuestas ICMP. Puede combinarse con un escaneo TCP, pero es lento y muchos sistemas limitan esos mensajes.',
+        flag: '-sU', labelKey: 'option.sU.label',
+        docKey: 'option.sU.doc',
         docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
       },
       {
-        flag: '-sn', label: 'Solo hosts',
-        doc: 'Descubre qué hosts responden sin escanear sus puertos (ping scan). Útil para inventariar una red o vigilar su disponibilidad; admite combinarse con otras sondas de descubrimiento.',
+        flag: '-sn', labelKey: 'option.sn.label',
+        docKey: 'option.sn.doc',
         docsUrl: 'https://nmap.org/book/man-host-discovery.html',
       },
       {
-        flag: '-sL', label: 'Solo listar',
-        doc: 'List scan: enumera los objetivos sin enviarles paquetes. Por defecto hace DNS inverso; sirve para comprobar un rango antes de lanzar un escaneo real.',
+        flag: '-sL', labelKey: 'option.sL.label',
+        docKey: 'option.sL.doc',
         docsUrl: 'https://nmap.org/book/man-host-discovery.html',
       },
       {
-        flag: '-A', label: 'Agresivo',
-        doc: 'Activa a la vez detección de SO (-O), versiones (-sV), scripts NSE (-sC) y traceroute. Es más intrusivo: úsalo solo en redes con permiso.',
+        flag: '-A', labelKey: 'option.A.label',
+        docKey: 'option.A.doc',
         docsUrl: 'https://nmap.org/book/man-misc-options.html',
       },
     ],
   },
   {
-    title: 'Servicios y SO',
+    titleKey: 'group.servicesOs',
     options: [
       {
-        flag: '-sV', label: 'Versión de servicios',
-        doc: 'Interroga los puertos abiertos para identificar protocolo, aplicación, versión, tipo de dispositivo y CPE usando la base de sondas nmap-service-probes.',
+        flag: '-sV', labelKey: 'option.sV.label',
+        docKey: 'option.sV.doc',
         docsUrl: 'https://nmap.org/book/man-version-detection.html',
       },
       {
-        flag: '--version-light', label: 'Versiones ligera',
-        doc: 'Atajo para --version-intensity 2: usa solo las sondas más habituales. Acelera la detección de versiones a costa de identificar menos servicios.',
+        flag: '--version-light', labelKey: 'option.versionlight.label',
+        docKey: 'option.versionlight.doc',
         docsUrl: 'https://nmap.org/book/man-version-detection.html',
       },
       {
-        flag: '-sC', label: 'Scripts NSE',
-        doc: 'Ejecuta los scripts del conjunto por defecto del motor NSE (equivalente a --script=default). Algunos se consideran intrusivos: no los uses contra redes ajenas sin permiso.',
+        flag: '-sC', labelKey: 'option.sC.label',
+        docKey: 'option.sC.doc',
         docsUrl: 'https://nmap.org/book/man-nse.html',
       },
       {
-        flag: '-O', label: 'Detección de SO',
-        doc: 'Determina el sistema operativo remoto mediante la huella de la pila TCP/IP: compara las respuestas con nmap-os-db y muestra el SO probable y su CPE.',
+        flag: '-O', labelKey: 'option.O.label',
+        docKey: 'option.O.doc',
         docsUrl: 'https://nmap.org/book/man-os-detection.html',
       },
       {
-        flag: '--osscan-limit', label: 'Limitar detección SO',
-        doc: 'Limita -O a hosts con al menos un puerto abierto y otro cerrado. Ahorra bastante tiempo, sobre todo en escaneos -Pn con muchos hosts.',
+        flag: '--osscan-limit', labelKey: 'option.osscanlimit.label',
+        docKey: 'option.osscanlimit.doc',
         docsUrl: 'https://nmap.org/book/man-os-detection.html',
       },
     ],
   },
   {
-    title: 'Descubrimiento y puertos',
+    titleKey: 'group.discoveryPorts',
     options: [
       {
-        flag: '-Pn', label: 'Sin ping previo',
-        doc: 'Omite el descubrimiento de hosts y trata como activa cada dirección objetivo, aplicando el escaneo solicitado a todas. En un rango grande puede tardar mucho.',
+        flag: '-Pn', labelKey: 'option.Pn.label',
+        docKey: 'option.Pn.doc',
         docsUrl: 'https://nmap.org/book/man-host-discovery.html',
       },
       {
-        flag: '-PE', label: 'Ping ICMP',
-        doc: 'Descubrimiento mediante ICMP echo (el ping clásico). Muchos hosts y firewalls bloquean estas peticiones, así que conviene combinarlo con otras sondas.',
+        flag: '-PE', labelKey: 'option.PE.label',
+        docKey: 'option.PE.doc',
         docsUrl: 'https://nmap.org/book/man-host-discovery.html',
       },
       {
-        flag: '-F', label: 'Escaneo rápido',
-        doc: 'Escanea solo los 100 puertos más frecuentes en lugar de los 1.000 por defecto, según los datos de nmap-services.',
+        flag: '-F', labelKey: 'option.F.label',
+        docKey: 'option.F.doc',
         docsUrl: 'https://nmap.org/book/man-port-specification.html',
       },
       {
-        flag: '-p-', label: 'Todos los puertos',
-        doc: 'Equivale a -p 1-65535: escanea todos los puertos en lugar del rango habitual. Es mucho más lento, especialmente en varios hosts.',
+        flag: '-p-', labelKey: 'option.p.label',
+        docKey: 'option.p.doc',
         docsUrl: 'https://nmap.org/book/man-port-specification.html',
       },
       {
-        flag: '--max-retries=1', label: 'Menos reintentos',
-        doc: 'Reduce a uno las retransmisiones de las sondas de puertos. Acelera mucho los escaneos de hosts con limitación de velocidad, pero puede dejar puertos sin detectar.',
+        flag: '--max-retries=1', labelKey: 'option.maxretries1.label',
+        docKey: 'option.maxretries1.doc',
         docsUrl: 'https://nmap.org/book/man-performance.html',
       },
     ],
   },
   {
-    title: 'DNS, red y salida',
+    titleKey: 'group.dnsNetworkOutput',
     options: [
       {
-        flag: '-n', label: 'Sin resolución DNS',
-        doc: 'Nunca hace resolución DNS inversa de las IPs activas. Ahorra tiempo en rangos grandes, aunque se pierden los nombres de host en los resultados.',
+        flag: '-n', labelKey: 'option.n.label',
+        docKey: 'option.n.doc',
         docsUrl: 'https://nmap.org/book/man-target-specification.html',
       },
       {
-        flag: '-R', label: 'Resolver todas las IPs',
-        doc: 'Fuerza la resolución DNS inversa de todas las direcciones objetivo, incluso de las que no responden. Es lo contrario de -n y puede añadir mucho tiempo.',
+        flag: '-R', labelKey: 'option.R.label',
+        docKey: 'option.R.doc',
         docsUrl: 'https://nmap.org/book/man-target-specification.html',
       },
       {
-        flag: '-6', label: 'IPv6',
-        doc: 'Activa el escaneo IPv6 para las funciones habituales (descubrimiento, puertos, versiones y NSE). El objetivo debe indicarse con sintaxis IPv6 o como nombre de host.',
+        flag: '-6', labelKey: 'option.6.label',
+        docKey: 'option.6.doc',
         docsUrl: 'https://nmap.org/book/man-misc-options.html',
       },
       {
-        flag: '--open', label: 'Solo abiertos',
-        doc: 'Muestra únicamente hosts con algún puerto abierto, abierto|filtrado o no filtrado, y solo esos puertos. Oculta los estados cerrado y filtrado para reducir el ruido.',
+        flag: '--open', labelKey: 'option.open.label',
+        docKey: 'option.open.doc',
         docsUrl: 'https://nmap.org/book/man-output.html',
       },
       {
-        flag: '--traceroute', label: 'Traceroute',
-        doc: 'Traza la ruta hasta cada host tras el escaneo, usando el puerto y protocolo con más probabilidades de llegar. No funciona con connect (-sT) ni con idle (-sI).',
+        flag: '--traceroute', labelKey: 'option.traceroute.label',
+        docKey: 'option.traceroute.doc',
         docsUrl: 'https://nmap.org/book/man-host-discovery.html',
       },
     ],
@@ -185,16 +187,16 @@ const EXCLUSIVE_FLAGS: Record<string, readonly string[]> = {
 };
 
 const TIMINGS = ['-T0', '-T1', '-T2', '-T3', '-T4', '-T5'] as const;
-const TIMEOUTS = [
-  { value: '', label: 'Por defecto (CLI)' },
+const TIMEOUTS: ReadonlyArray<{ value: string; label: string; labelKey?: TranslationKey }> = [
+  { value: '', label: '', labelKey: 'scan.timeoutDefault' },
   { value: '300000', label: '5 min' },
   { value: '900000', label: '15 min' },
   { value: '1800000', label: '30 min' },
   { value: '3600000', label: '1 h' },
   { value: '7200000', label: '2 h' },
-] as const;
-const HOST_TIMEOUTS = [
-  { value: '', label: 'Sin límite' },
+];
+const HOST_TIMEOUTS: ReadonlyArray<{ value: string; label: string; labelKey?: TranslationKey }> = [
+  { value: '', label: '', labelKey: 'scan.noLimit' },
   { value: '15000', label: '15 s' },
   { value: '30000', label: '30 s' },
   { value: '60000', label: '1 min' },
@@ -231,6 +233,7 @@ const formatBytes = (bytes: number) => {
 };
 
 export default function ScanForm({ status, onLoad }: Props) {
+  const { t, formatNumber } = useI18n();
   const [remember] = useState(loadRememberSettings);
   const [rememberedForm] = useState<Partial<RememberedForm>>(loadRememberedForm);
   const [target, setTarget] = useState(() =>
@@ -304,8 +307,8 @@ export default function ScanForm({ status, onLoad }: Props) {
       timing,
     ];
     if (ports.trim() && !options.has('-p-')) flags.push('-p', ports.trim());
-    return [status?.nmapCommand || 'nmap', ...flags, '-oX', '-', target.trim() || '<objetivo>'].join(' ');
-  }, [target, ports, timing, options, hostTimeoutMs, status?.nmapCommand]);
+    return [status?.nmapCommand || 'nmap', ...flags, '-oX', '-', target.trim() || t('scan.targetPlaceholderCommand')].join(' ');
+  }, [target, ports, timing, options, hostTimeoutMs, status?.nmapCommand, t]);
   const [command, setCommand] = useState(autoCommand);
 
   const largeDiscovery = useMemo(() => {
@@ -487,9 +490,9 @@ export default function ScanForm({ status, onLoad }: Props) {
   const apiError = async (response: Response) => {
     try {
       const data = (await response.json()) as { error?: string };
-      return data.error ?? `Error ${response.status}`;
+      return data.error ?? t('scan.errorStatus', { status: response.status });
     } catch {
-      return `Error ${response.status}`;
+      return t('scan.errorStatus', { status: response.status });
     }
   };
 
@@ -510,7 +513,7 @@ export default function ScanForm({ status, onLoad }: Props) {
   const runScan = async () => {
     setError('');
     if (status === null) {
-      setError('No hay conexión con el servidor local. Inicia Nmap Atlas desde la CLI para escanear.');
+      setError(t('scan.runNoServer'));
       return;
     }
     const id = newScanId();
@@ -536,17 +539,18 @@ export default function ScanForm({ status, onLoad }: Props) {
       if (!response.ok) throw new Error(await apiError(response));
       const result = (await response.json()) as ScanResult;
       const warnings: string[] = [];
+      // El stderr del servidor está en español: las regex no deben traducirse.
       if (/Escaneo detenido tras/.test(result.stderr)) {
-        warnings.push('El escaneo se detuvo por el tiempo límite; se ha cargado la parte capturada.');
+        warnings.push(t('scan.warningTimeout'));
       } else if (/Escaneo cancelado por el usuario/.test(result.stderr)) {
-        warnings.push('Escaneo cancelado; se ha cargado la parte capturada.');
+        warnings.push(t('scan.warningCancelled'));
       } else if (result.exitCode !== 0) {
-        warnings.push(`nmap terminó con código ${result.exitCode}; el XML puede estar incompleto.`);
+        warnings.push(t('scan.warningExit', { code: result.exitCode ?? 0 }));
       }
       onLoad(result.xml, result.savedAs ?? `nmap ${target}.xml`, warnings);
       playSuccessSound();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo ejecutar el escaneo.');
+      setError(err instanceof Error ? err.message : t('scan.runError'));
     } finally {
       setBusy(false);
       setScanId(null);
@@ -578,8 +582,8 @@ export default function ScanForm({ status, onLoad }: Props) {
             <>
               <Terminal size={15} />
               <span>
-                Nmap <strong>{status?.nmapVersion}</strong> detectado
-                {status?.privileged && ' (con permisos elevados)'} · los XML se guardan en{' '}
+                Nmap <strong>{status?.nmapVersion}</strong> {t('scan.detected')}
+                {status?.privileged && t('scan.privileged')}{t('scan.xmlSavedIn')}
                 <code>{status?.scansDir}</code>
               </span>
             </>
@@ -587,17 +591,15 @@ export default function ScanForm({ status, onLoad }: Props) {
             <>
               <AlertCircle size={15} />
               <span>
-                {status
-                  ? 'No se encontró el ejecutable nmap. Instálalo y reinicia la CLI.'
-                  : 'No se pudo conectar con el servidor local. Inicia Nmap Atlas desde la CLI para escanear.'}
+                {status ? t('scan.noNmap') : t('scan.noServer')}
               </span>
             </>
           )}
           <button
             type="button"
             className="icon-button scan-status-close"
-            aria-label="Ocultar aviso"
-            title="Ocultar aviso"
+            aria-label={t('scan.hideStatus')}
+            title={t('scan.hideStatus')}
             onClick={dismissStatus}
           >
             <X size={14} />
@@ -606,14 +608,14 @@ export default function ScanForm({ status, onLoad }: Props) {
       )}
 
       <div className="scan-field scan-field-target">
-        <label className="scan-label" htmlFor="scan-target">Objetivo</label>
+        <label className="scan-label" htmlFor="scan-target">{t('scan.target')}</label>
         <div className="target-row">
           <input
             id="scan-target"
             className="scan-input"
             value={target}
             spellCheck={false}
-            placeholder="127.0.0.1  ·  192.168.1.0/24  ·  ejemplo.local"
+            placeholder={t('scan.targetPlaceholder')}
             onChange={(event) => setTarget(event.target.value)}
           />
           <button
@@ -621,9 +623,9 @@ export default function ScanForm({ status, onLoad }: Props) {
             className={`btn btn-ghost ipcalc-toggle ${showIpcCalc ? 'active' : ''}`}
             onClick={() => setShowIpcCalc((value) => !value)}
             aria-expanded={showIpcCalc}
-            title="Calcular rangos con ipcalc"
+            title={t('scan.calcRangeTitle')}
           >
-            <Calculator size={15} /> Calcular rango
+            <Calculator size={15} /> {t('scan.calcRange')}
           </button>
         </div>
         {showIpcCalc && (
@@ -638,15 +640,17 @@ export default function ScanForm({ status, onLoad }: Props) {
           <div className="scan-notice scan-notice-warn" role="note">
             <AlertCircle size={14} />
             <span>
-              Un <code>/{largeDiscovery.prefix}</code> son {largeDiscovery.count.toLocaleString('es-ES')} IPs:
-              el descubrimiento puede tardar varios minutos. «Tiempo por host» no acelera esta fase.
+              {t('scan.largeDiscovery', {
+                prefix: largeDiscovery.prefix,
+                count: formatNumber(largeDiscovery.count),
+              })}
             </span>
           </div>
         )}
       </div>
 
       <div className="scan-field scan-field-profile">
-        <label className="scan-label" htmlFor="scan-profile">Perfil</label>
+        <label className="scan-label" htmlFor="scan-profile">{t('scan.profile')}</label>
         <select
           id="scan-profile"
           className="scan-input"
@@ -654,13 +658,13 @@ export default function ScanForm({ status, onLoad }: Props) {
           onChange={(event) => selectProfile(event.target.value)}
         >
           {PROFILES.map((item) => (
-            <option key={item.id} value={item.id}>{item.label} — {item.hint}</option>
+            <option key={item.id} value={item.id}>{t(item.labelKey)} — {t(item.hintKey)}</option>
           ))}
         </select>
       </div>
 
       <div className="scan-field scan-field-timing">
-        <label className="scan-label" htmlFor="scan-timing">Velocidad</label>
+        <label className="scan-label" htmlFor="scan-timing">{t('scan.timing')}</label>
         <select
           id="scan-timing"
           className="scan-input"
@@ -674,7 +678,7 @@ export default function ScanForm({ status, onLoad }: Props) {
       </div>
 
       <div className="scan-field scan-field-timeout">
-        <label className="scan-label" htmlFor="scan-timeout">Tiempo límite</label>
+        <label className="scan-label" htmlFor="scan-timeout">{t('scan.timeout')}</label>
         <select
           id="scan-timeout"
           className="scan-input"
@@ -682,13 +686,13 @@ export default function ScanForm({ status, onLoad }: Props) {
           onChange={(event) => setTimeoutMs(event.target.value)}
         >
           {TIMEOUTS.map((item) => (
-            <option key={item.value} value={item.value}>{item.label}</option>
+            <option key={item.value} value={item.value}>{item.labelKey ? t(item.labelKey) : item.label}</option>
           ))}
         </select>
       </div>
 
       <div className="scan-field scan-field-hosttimeout">
-        <label className="scan-label" htmlFor="scan-host-timeout">Tiempo por host</label>
+        <label className="scan-label" htmlFor="scan-host-timeout">{t('scan.hostTimeout')}</label>
         <select
           id="scan-host-timeout"
           className="scan-input"
@@ -696,19 +700,19 @@ export default function ScanForm({ status, onLoad }: Props) {
           onChange={(event) => setHostTimeoutMs(event.target.value)}
         >
           {HOST_TIMEOUTS.map((item) => (
-            <option key={item.value} value={item.value}>{item.label}</option>
+            <option key={item.value} value={item.value}>{item.labelKey ? t(item.labelKey) : item.label}</option>
           ))}
         </select>
       </div>
 
       <div className="scan-field scan-field-ports">
-        <label className="scan-label" htmlFor="scan-ports">Puertos (opcional)</label>
+        <label className="scan-label" htmlFor="scan-ports">{t('scan.ports')}</label>
         <input
           id="scan-ports"
           className="scan-input"
           value={ports}
           spellCheck={false}
-          placeholder="Ej.: 22,80,443 o 1-1024"
+          placeholder={t('scan.portsPlaceholder')}
           onChange={(event) => {
             setPorts(event.target.value);
             if (event.target.value.trim()) {
@@ -724,11 +728,11 @@ export default function ScanForm({ status, onLoad }: Props) {
       </div>
 
       <fieldset className="scan-options">
-        <legend>Opciones adicionales</legend>
+        <legend>{t('scan.additionalOptions')}</legend>
         <div className="scan-option-groups">
           {OPTION_GROUPS.map((group) => (
-            <section className="scan-option-group" key={group.title}>
-              <h4 className="scan-option-group-title">{group.title}</h4>
+            <section className="scan-option-group" key={group.titleKey}>
+              <h4 className="scan-option-group-title">{t(group.titleKey)}</h4>
               <div className="scan-option-grid">
                 {group.options.map((option) => (
                   <label
@@ -745,9 +749,9 @@ export default function ScanForm({ status, onLoad }: Props) {
                       aria-describedby={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`}
                       onChange={() => toggleOption(option.flag)}
                     />
-                    <span><code>{option.flag}</code> {option.label}</span>
+                    <span><code>{option.flag}</code> {t(option.labelKey)}</span>
                     <span id={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`} className="sr-only">
-                      {option.doc}
+                      {t(option.docKey)}
                     </span>
                   </label>
                 ))}
@@ -758,13 +762,13 @@ export default function ScanForm({ status, onLoad }: Props) {
       </fieldset>
 
       <div className="command-preview">
-        <span>Comando que se ejecutará</span>
+        <span>{t('scan.command')}</span>
         <textarea
           className="command-input"
           value={command}
           spellCheck={false}
           rows={1}
-          aria-label="Comando que se ejecutará"
+          aria-label={t('scan.command')}
           onChange={(event) => setCommand(event.target.value)}
         />
       </div>
@@ -782,12 +786,17 @@ export default function ScanForm({ status, onLoad }: Props) {
           onClick={() => void runScan()}
         >
           {busy ? <LoaderCircle size={15} className="spin" /> : <Play size={15} />}
-          {busy ? 'Escaneando…' : 'Ejecutar y analizar'}
+          {busy ? t('scan.running') : t('scan.run')}
         </button>
         {busy && (
           <>
             <span className="scan-elapsed">
-              {formatElapsed(elapsedMs)} · límite {TIMEOUTS.find((item) => item.value === timeoutMs)?.label ?? 'por defecto'}
+              {formatElapsed(elapsedMs)} · {t('scan.limit', {
+                label: (() => {
+                  const item = TIMEOUTS.find((entry) => entry.value === timeoutMs);
+                  return item?.labelKey ? t(item.labelKey) : (item?.label ?? t('scan.defaultShort'));
+                })(),
+              })}
             </span>
             <button
               type="button"
@@ -795,7 +804,7 @@ export default function ScanForm({ status, onLoad }: Props) {
               onClick={() => void cancelScan()}
               disabled={cancelling}
             >
-              <X size={15} /> {cancelling ? 'Cancelando…' : 'Cancelar escaneo'}
+              <X size={15} /> {cancelling ? t('scan.cancelling') : t('scan.cancel')}
             </button>
           </>
         )}
@@ -806,16 +815,16 @@ export default function ScanForm({ status, onLoad }: Props) {
           <div className="scan-progress-head">
             <span>
               {progress.hosts > 0
-                ? 'Analizando hosts'
+                ? t('scan.progressHosts')
                 : progress.hostHints > 0
-                  ? 'Descubriendo hosts'
-                  : 'Preparando escaneo'}
+                  ? t('scan.progressDiscovery')
+                  : t('scan.progressPreparing')}
             </span>
             <code>{formatBytes(progress.bytes)}</code>
           </div>
           <div className="scan-progress-track"><i /></div>
-          <div className="scan-log" ref={logRef} role="log" aria-live="polite" aria-label="Log del escaneo">
-            {progress.log.length === 0 && <div className="scan-log-empty">Esperando salida de nmap…</div>}
+          <div className="scan-log" ref={logRef} role="log" aria-live="polite" aria-label={t('scan.log')}>
+            {progress.log.length === 0 && <div className="scan-log-empty">{t('scan.logEmpty')}</div>}
             {progress.log.map((line, index) => {
               const match = /^(\d{2}:\d{2}:\d{2})  (.*)$/.exec(line);
               return (
@@ -844,10 +853,10 @@ export default function ScanForm({ status, onLoad }: Props) {
           onMouseEnter={keepOptionTooltip}
           onMouseLeave={hideOptionTooltip}
         >
-          <strong><code>{tooltip.option.flag}</code> {tooltip.option.label}</strong>
-          <p>{tooltip.option.doc}</p>
+          <strong><code>{tooltip.option.flag}</code> {t(tooltip.option.labelKey)}</strong>
+          <p>{t(tooltip.option.docKey)}</p>
           <a href={tooltip.option.docsUrl} target="_blank" rel="noreferrer">
-            Ver en el manual oficial de Nmap ↗
+            {t('scan.tooltipManual')}
           </a>
         </div>
       )}

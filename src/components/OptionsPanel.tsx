@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Settings2 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
+import { languageName, locales, type Locale } from '../i18n';
 import {
   DEFAULT_REMEMBER,
   REMEMBER_FIELDS,
@@ -11,6 +13,7 @@ import {
 } from '../remember';
 
 export default function OptionsPanel() {
+  const { t, locale, setLocale } = useI18n();
   const [remember, setRemember] = useState<RememberSettings>(loadRememberSettings);
   const allRemembered = REMEMBER_FIELDS.every(({ id }) => remember[id]);
 
@@ -31,7 +34,7 @@ export default function OptionsPanel() {
       );
     } else {
       const next = Object.fromEntries(
-        REMEMBER_FIELDS.map(({ id }) => [id, true]),
+        REMEMBER_FIELDS.map(({ id }) => [id, true])
       ) as RememberSettings;
       setRemember(next);
       saveRememberSettings(next);
@@ -41,24 +44,39 @@ export default function OptionsPanel() {
   return (
     <div className="options-panel">
       <section className="options-card">
-        <h2><Settings2 size={16} /> Opciones</h2>
+        <h2><Settings2 size={16} /> {t('options.title')}</h2>
         <fieldset>
-          <legend>Recordar ajustes</legend>
+          <legend>{t('options.remember')}</legend>
           <div className="options-card-list">
-            {REMEMBER_FIELDS.map(({ id, label }) => (
+            {REMEMBER_FIELDS.map(({ id, labelKey }) => (
               <label className="scan-check" key={id}>
                 <input type="checkbox" checked={remember[id]} onChange={() => toggleField(id)} />
-                <span>{label}</span>
+                <span>{t(labelKey)}</span>
               </label>
             ))}
           </div>
           <div className="options-card-all">
             <label className="scan-check">
               <input type="checkbox" checked={allRemembered} onChange={toggleAll} />
-              <span>Recordar todo</span>
+              <span>{t('options.rememberAll')}</span>
             </label>
           </div>
         </fieldset>
+        <div className="options-card-field">
+          <label className="scan-label" htmlFor="options-locale">{t('options.language')}</label>
+          <select
+            id="options-locale"
+            className="scan-input"
+            value={locale}
+            onChange={(event) => setLocale(event.target.value as Locale)}
+          >
+            {(Object.keys(locales) as Locale[]).map((code) => (
+              <option key={code} value={code}>
+                {languageName(locale, code)}
+              </option>
+            ))}
+          </select>
+        </div>
       </section>
     </div>
   );

@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { AlertTriangle, Radar, RotateCcw, X } from 'lucide-react';
 import type { NmapScan } from './types';
 import { parseNmapXml } from './parser/nmapXml';
+import { useI18n } from './i18n/I18nProvider';
 import UploadView from './components/UploadView';
 import Workspace from './components/Workspace';
 
 export default function App() {
+  const { t, locale, formatNumber, formatDateTime } = useI18n();
   const [scan, setScan] = useState<NmapScan | null>(null);
   const [hideWarning, setHideWarning] = useState(false);
   const [uploadKey, setUploadKey] = useState(0);
@@ -17,10 +19,19 @@ export default function App() {
   };
 
   const loadXml = (xml: string, filename: string, extraWarnings: string[] = []) => {
-    const parsed = parseNmapXml(xml, filename);
+    const parsed = parseNmapXml(xml, filename, t);
     setScan({ ...parsed, warnings: [...extraWarnings, ...parsed.warnings] });
     setHideWarning(false);
   };
+
+  const openPorts = scan
+    ? scan.hosts.reduce(
+        (total, host) => total + host.ports.filter((port) => port.state === 'open').length,
+        0,
+      )
+    : 0;
+  const startDate = scan?.start ? new Date(scan.start) : null;
+  const validStartDate = startDate && !Number.isNaN(startDate.getTime()) ? startDate : null;
 
   return (
     <div className="app-shell">
@@ -29,28 +40,32 @@ export default function App() {
           type="button"
           className="brand"
           onClick={resetScan}
-          title="Nuevo escaneo"
-          aria-label="Nmap Atlas: nuevo escaneo"
+          title={t('app.newScan')}
+          aria-label={t('app.newScanAria')}
         >
           <span className="brand-mark"><Radar size={22} strokeWidth={2} /></span>
           <h1>Nmap Atlas</h1>
         </button>
         {scan && (
           <div className="header-right">
-            <div className="header-file" title={scan.filename || 'XML sin nombre'}>
+            <div className="header-file" title={scan.filename || t('app.unnamedXml')}>
               <span className="dot dot-green" />
-              {scan.filename || 'Escaneo cargado'}
+              {scan.filename || t('app.scanLoaded')}
               <span className="muted">
-                · {scan.hosts.length} hosts ·{' '}
-                {scan.hosts.reduce(
-                  (total, host) => total + host.ports.filter((port) => port.state === 'open').length,
-                  0,
-                )}{' '}
-                puertos abiertos
+                {' · '}
+                {t('app.hosts', { count: formatNumber(scan.hosts.length) })}
+                {' · '}
+                {t('app.openPorts', { count: formatNumber(openPorts) })}
+                {validStartDate && (
+                  <>
+                    {' · '}
+                    {formatDateTime(validStartDate, { dateStyle: 'medium', timeStyle: 'short' })}
+                  </>
+                )}
               </span>
             </div>
             <button className="btn btn-ghost" onClick={resetScan}>
-              <RotateCcw size={15} /> Nuevo escaneo
+              <RotateCcw size={15} /> {t('app.newScan')}
             </button>
           </div>
         )}
@@ -60,14 +75,14 @@ export default function App() {
         <div className="warning-banner" role="status">
           <AlertTriangle size={15} />
           <span>{scan.warnings.join(' ')}</span>
-          <button className="icon-button" onClick={() => setHideWarning(true)} title="Ocultar aviso">
+          <button className="icon-button" onClick={() => setHideWarning(true)} title={t('app.hideWarning')}>
             <X size={14} />
           </button>
         </div>
       ) : null}
 
       {scan ? (
-        <Workspace key={scan.filename + scan.args} scan={scan} />
+        <Workspace key={scan.filename + scan.args + locale} scan={scan} />
       ) : (
         <UploadView key={uploadKey} onLoad={loadXml} />
       )}

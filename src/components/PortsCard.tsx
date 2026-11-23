@@ -1,6 +1,8 @@
 import { X } from 'lucide-react';
 import { stateColor } from '../graph/model';
 import { hostLabel } from '../parser/nmapXml';
+import { useI18n } from '../i18n/I18nProvider';
+import type { TranslationKey } from '../i18n';
 import type { NmapHost, NmapPort } from '../types';
 
 interface Props {
@@ -9,14 +11,14 @@ interface Props {
   onClose: () => void;
 }
 
-const stateLabels: Record<string, string> = {
-  open: 'abierto',
-  closed: 'cerrado',
-  filtered: 'filtrado',
-  unfiltered: 'sin filtrar',
-  'open|filtered': 'abierto|filtrado',
-  'closed|filtered': 'cerrado|filtrado',
-  unknown: 'desconocido',
+const stateKeys: Record<string, TranslationKey> = {
+  open: 'state.open',
+  closed: 'state.closed',
+  filtered: 'state.filtered',
+  unfiltered: 'state.unfiltered',
+  'open|filtered': 'state.openFiltered',
+  'closed|filtered': 'state.closedFiltered',
+  unknown: 'state.unknown',
 };
 
 function portText(port: NmapPort): string {
@@ -36,6 +38,7 @@ function portText(port: NmapPort): string {
 }
 
 export default function PortsCard({ hosts, query, onClose }: Props) {
+  const { t, formatNumber } = useI18n();
   const q = query.trim().toLowerCase();
   const total = hosts.reduce((sum, host) => sum + host.ports.length, 0);
   const open = hosts.reduce((sum, host) => sum + host.ports.filter((port) => port.state === 'open').length, 0);
@@ -46,27 +49,31 @@ export default function PortsCard({ hosts, query, onClose }: Props) {
       <div className="ports-card-head">
         <div>
           <span className="ports-card-kicker">
-            {hosts.length > 1 ? 'Todos los hosts' : hosts[0] ? hostLabel(hosts[0]) : 'Puertos'}
+            {hosts.length > 1
+              ? t('ports.allHosts')
+              : hosts[0]
+                ? hostLabel(hosts[0], t)
+                : t('ports.title')}
           </span>
           <h3>
-            {total} {total === 1 ? 'puerto' : 'puertos'}
-            {open > 0 && <span> · {open} abiertos</span>}
-            {q && <span> · {matches} coincidencias</span>}
+            {formatNumber(total)} {total === 1 ? t('ports.portOne') : t('ports.portMany')}
+            {open > 0 && <span> · {t('ports.open', { count: formatNumber(open) })}</span>}
+            {q && <span> · {t('ports.matches', { count: formatNumber(matches) })}</span>}
           </h3>
         </div>
-        <button className="ports-card-close" onClick={onClose} title="Cerrar ficha de puertos">
+        <button className="ports-card-close" onClick={onClose} title={t('ports.close')}>
           <X size={15} />
         </button>
       </div>
 
       <div className="ports-card-scroll">
         {total === 0 && (
-          <p className="ports-card-empty">Este host no tiene puertos enumerados en el XML.</p>
+          <p className="ports-card-empty">{t('ports.empty')}</p>
         )}
 
         {hosts.map((host) => (
           <div className="ports-card-host" key={host.key}>
-            {hosts.length > 1 && <div className="ports-card-hostname">{hostLabel(host)}</div>}
+            {hosts.length > 1 && <div className="ports-card-hostname">{hostLabel(host, t)}</div>}
 
             {[...host.ports]
               .sort((a, b) => Number(a.portId) - Number(b.portId))
@@ -79,10 +86,10 @@ export default function PortsCard({ hosts, query, onClose }: Props) {
                   <div className={`port-row ${hit ? 'match' : ''}`} key={`${port.protocol}:${port.portId}`}>
                     <span className="port-number">{port.portId}/{port.protocol}</span>
                     <span className="port-state" style={{ color: stateColor(port.state) }}>
-                      {stateLabels[port.state] ?? port.state}
+                      {stateKeys[port.state] ? t(stateKeys[port.state]) : port.state}
                     </span>
                     <div className="port-main">
-                      <strong>{service?.name || 'desconocido'}</strong>
+                      <strong>{service?.name || t('ports.unknown')}</strong>
                       <span>{product || port.reason || '—'}</span>
                     </div>
                     {cpe && (
@@ -102,8 +109,11 @@ export default function PortsCard({ hosts, query, onClose }: Props) {
 
             {host.extraPorts.map((group, index) => (
               <div className="ports-card-extra" key={`${group.state}:${index}`}>
-                + {group.count} puertos {group.state}
-                <span>{group.reasons.map((reason) => `${reason.count} ${reason.reason}`).join(' · ')}</span>
+                {t('ports.extra', {
+                  count: formatNumber(group.count),
+                  state: stateKeys[group.state] ? t(stateKeys[group.state]) : group.state,
+                })}
+                <span>{group.reasons.map((reason) => `${formatNumber(reason.count)} ${reason.reason}`).join(' · ')}</span>
               </div>
             ))}
           </div>
