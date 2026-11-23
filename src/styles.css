@@ -700,6 +700,12 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent);
 }
 .scan-progress-head code { font-size: 10px; color: var(--muted); text-transform: none; }
+.scan-progress-current {
+  display: block; margin-top: 2px;
+  font-size: 9px; letter-spacing: .04em; text-transform: none;
+  color: var(--dim);
+}
+.scan-progress-codes { display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 .scan-progress-track {
   height: 4px; border-radius: 3px; overflow: hidden;
   background: rgba(var(--accent-rgb), .12);
@@ -707,6 +713,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .scan-progress-track i {
   display: block; width: 35%; height: 100%; border-radius: 3px;
   background: linear-gradient(90deg, var(--accent-dark), var(--accent), var(--accent-dark));
+  transition: width .4s ease;
   animation: scan-progress-slide 1.4s ease-in-out infinite;
 }
 @keyframes scan-progress-slide {

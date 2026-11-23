@@ -23,6 +23,11 @@ interface ScanProgress {
   bytes: number;
   hostHints: number;
   hosts: number;
+  total: number;
+  processed: number;
+  percent: number;
+  currentAddress: string;
+  currentApprox: boolean;
   log: string[];
 }
 
@@ -447,6 +452,11 @@ export default function ScanForm({ status, onLoad }: Props) {
     bytes: 0,
     hostHints: 0,
     hosts: 0,
+    total: 0,
+    processed: 0,
+    percent: 0,
+    currentAddress: '',
+    currentApprox: false,
     log: [],
   });
   const logRef = useRef<HTMLDivElement>(null);
@@ -520,6 +530,11 @@ export default function ScanForm({ status, onLoad }: Props) {
             bytes: data.bytes,
             hostHints: data.hostHints,
             hosts: data.hosts,
+            total: Number(data.total) || 0,
+            processed: Number(data.processed) || 0,
+            percent: Number(data.percent) || 0,
+            currentAddress: typeof data.currentAddress === 'string' ? data.currentAddress : '',
+            currentApprox: Boolean(data.currentApprox),
             log: Array.isArray(data.log) ? data.log : [],
           });
         }
@@ -695,7 +710,17 @@ export default function ScanForm({ status, onLoad }: Props) {
     }
     const id = newScanId();
     setScanId(id);
-    setProgress({ bytes: 0, hostHints: 0, hosts: 0, log: [] });
+    setProgress({
+      bytes: 0,
+      hostHints: 0,
+      hosts: 0,
+      total: 0,
+      processed: 0,
+      percent: 0,
+      currentAddress: '',
+      currentApprox: false,
+      log: [],
+    });
     setBusy(true);
     try {
       const response = await fetch('/api/scan', {
@@ -1006,13 +1031,41 @@ export default function ScanForm({ status, onLoad }: Props) {
             <span>
               {progress.hosts > 0
                 ? t('scan.progressHosts')
-                : progress.hostHints > 0
+                : progress.processed > 0 || progress.hostHints > 0
                   ? t('scan.progressDiscovery')
                   : t('scan.progressPreparing')}
+              {progress.currentAddress && (
+                <small className="scan-progress-current">
+                  {t('scan.progressCurrent', {
+                    address: progress.currentApprox
+                      ? `~${progress.currentAddress} ${t('scan.progressApprox')}`
+                      : progress.currentAddress,
+                  })}
+                </small>
+              )}
             </span>
-            <code>{formatBytes(progress.bytes)}</code>
+            <span className="scan-progress-codes">
+              {progress.total > 0 ? (
+                <code>
+                  {formatNumber(progress.processed)}/{formatNumber(progress.total)} {t('scan.progressIps')}
+                </code>
+              ) : progress.percent > 0 ? (
+                <code>{Math.round(progress.percent)}%</code>
+              ) : null}
+              <code>{formatBytes(progress.bytes)}</code>
+            </span>
           </div>
-          <div className="scan-progress-track"><i /></div>
+          <div className="scan-progress-track">
+            <i
+              style={
+                progress.total > 0
+                  ? { width: `${Math.max(2, Math.min(100, (progress.processed / progress.total) * 100))}%` }
+                  : progress.percent > 0
+                    ? { width: `${Math.max(2, Math.min(100, progress.percent))}%` }
+                    : undefined
+              }
+            />
+          </div>
           <div className="scan-log" ref={logRef} role="log" aria-live="polite" aria-label={t('scan.log')}>
             {progress.log.length === 0 && <div className="scan-log-empty">{t('scan.logEmpty')}</div>}
             {progress.log.map((line, index) => {

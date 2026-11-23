@@ -114,6 +114,32 @@ function estimateTargets(raw) {
   return 2 ** (32 - prefix);
 }
 
+/** IP aproximada que nmap está recorriendo según el avance del CIDR. */
+function ipAtProgress(raw, processed) {
+  if (!processed) return '';
+  const match = /^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/.exec(String(raw ?? '').trim());
+  if (!match) return '';
+  const prefix = Number(match[2]);
+  if (prefix > 32) return '';
+  const octets = match[1].split('.').map(Number);
+  if (octets.some((octet) => octet > 255)) return '';
+  const address = octets.reduce((value, octet) => (value << 8) | octet, 0) >>> 0;
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  const network = (address & mask) >>> 0;
+  const count = 2 ** (32 - prefix);
+  if (processed >= count) return '';
+  // `processed` cuenta las IPs ya terminadas: la siguiente es la que nmap está
+  // recorriendo ahora. Es una estimación porque nmap no emite su IP cuando
+  // el host no responde.
+  const current = (network + processed) >>> 0;
+  return [
+    (current >>> 24) & 255,
+    (current >>> 16) & 255,
+    (current >>> 8) & 255,
+    current & 255,
+  ].join('.');
+}
+
 function validateTarget(raw) {
   const target = String(raw ?? '').trim();
   if (!target || target.length > 500) {
@@ -377,12 +403,20 @@ export function cancelScan(rawId, activeScans) {
 export async function runNmap(payload, config, activeScans = new Map()) {
   const { args, target } = buildArgs(payload, config);
   const command = nmapCommand(config);
+  // Nmap solo emite <taskprogress> en el XML si se pide explícitamente.
+  // Es la única forma fiable de saber cuántas IPs lleva procesadas, incluso
+  // cuando no hay resultados (hosts caídos o sin respuesta).
+  const nmapArgs = [...args];
+  if (!nmapArgs.some((arg) => arg === '--stats-every' || arg.startsWith('--stats-every='))) {
+    const outputIndex = nmapArgs.indexOf('-oX');
+    nmapArgs.splice(outputIndex === -1 ? nmapArgs.length : outputIndex, 0, '--stats-every=1s');
+  }
   const timeoutMs = validateTimeout(payload.timeoutMs) ?? config.timeoutMs;
   const scanId = typeof payload.id === 'string' && SAFE_SCAN_ID.test(payload.id) ? payload.id : null;
   const started = Date.now();
 
   const result = await new Promise((resolve, reject) => {
-    const child = spawn(command[0], [...command.slice(1), ...args], {
+    const child = spawn(command[0], [...command.slice(1), ...nmapArgs], {
       shell: false,
       cwd: config.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -398,8 +432,10 @@ export async function runNmap(payload, config, activeScans = new Map()) {
     let blockOpenPorts = 0;
     let analysisStarted = false;
     const discovered = [];
+    const totalTargets = estimateTargets(target);
     const stats = {
-      bytes: 0, hostHints: 0, hosts: 0,
+      bytes: 0, hostHints: 0, hosts: 0, total: totalTargets ?? 0,
+      processed: 0, percent: 0, currentApprox: false,
       lastAddress: '', currentAddress: '', queued: 0,
       log: [],
     };
@@ -409,6 +445,16 @@ export async function runNmap(payload, config, activeScans = new Map()) {
       stats.log.push(`${time}  ${message}`);
       if (stats.log.length > 200) stats.log.shift();
       if (/^(Descubierto|Analizando|Completado) /.test(message)) lastHostEvent = Date.now();
+    };
+    const progressText = () => {
+      const current = stats.currentAddress
+        ? ` · en curso ${stats.currentApprox ? '~' : ''}${stats.currentAddress}`
+        : '';
+      if (totalTargets) {
+        return ` · ${stats.processed.toLocaleString('es-ES')}/${totalTargets.toLocaleString('es-ES')} IPs${current}`;
+      }
+      const percent = Math.round(stats.percent);
+      return percent > 0 ? ` · ${percent}%${current}` : current;
     };
     addLog(`Escaneando ${target}`);
 
@@ -429,10 +475,20 @@ export async function runNmap(payload, config, activeScans = new Map()) {
       stats.hosts += (complete.match(/<host[\s>]/g) ?? []).length;
 
       const tags = complete.match(
-        /<hosthint\b[^>]*>|<\/hosthint>|<host\b[^>]*>|<\/host>|<address\b[^>]*>|<port\b[^>]*>/g,
+        /<hosthint\b[^>]*>|<\/hosthint>|<host\b[^>]*>|<\/host>|<address\b[^>]*>|<port\b[^>]*>|<taskprogress\b[^>]*\/>/g,
       ) ?? [];
       for (const tag of tags) {
-        if (tag.startsWith('<hosthint')) {
+        if (tag.startsWith('<taskprogress')) {
+          const percentMatch = /percent="([\d.]+)"/.exec(tag);
+          const percent = percentMatch ? Number(percentMatch[1]) : Number.NaN;
+          if (Number.isFinite(percent)) {
+            stats.percent = Math.max(stats.percent, percent);
+            if (totalTargets) {
+              const done = Math.min(totalTargets, Math.round((totalTargets * percent) / 100));
+              stats.processed = Math.max(stats.processed, done);
+            }
+          }
+        } else if (tag.startsWith('<hosthint')) {
           section = 'hint';
           blockAddress = '';
         } else if (tag === '</hosthint>') {
@@ -452,7 +508,7 @@ export async function runNmap(payload, config, activeScans = new Map()) {
           }
         } else if (tag === '</host>') {
           const detail = blockOpenPorts ? ` · ${blockOpenPorts} puertos abiertos` : '';
-          if (blockAddress) addLog(`Completado ${blockAddress}${detail}`);
+          if (blockAddress) addLog(`Completado ${blockAddress}${detail}${progressText()}`);
           const index = discovered.indexOf(blockAddress);
           if (index !== -1) discovered.splice(index, 1);
           if (discovered[0]) addLog(`Analizando ${discovered[0]}`);
@@ -468,7 +524,15 @@ export async function runNmap(payload, config, activeScans = new Map()) {
           blockOpenPorts += 1;
         }
       }
-      stats.currentAddress = discovered[0] ?? (section === 'host' ? blockAddress : '');
+      const liveAddress = discovered[0] ?? (section === 'host' ? blockAddress : '');
+      if (liveAddress) {
+        stats.currentAddress = liveAddress;
+        stats.currentApprox = false;
+      } else {
+        const estimated = ipAtProgress(target, stats.processed);
+        stats.currentAddress = estimated;
+        stats.currentApprox = Boolean(estimated);
+      }
       stats.queued = discovered.length;
     });
     child.stderr.on('data', (chunk) => { stderr += chunk; });
@@ -485,8 +549,7 @@ export async function runNmap(payload, config, activeScans = new Map()) {
       ? setInterval(() => {
           if (Date.now() - lastHostEvent < 15_000) return;
           const seconds = Math.floor((Date.now() - started) / 1000);
-          const count = estimateTargets(target);
-          addLog(`Descubriendo ${count ? `${count.toLocaleString('es-ES')} IPs · ` : ''}${seconds} s transcurridos`);
+          addLog(`Descubriendo${progressText() || ` · ${seconds} s transcurridos`}`);
         }, 15_000)
       : null;
 
