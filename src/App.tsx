@@ -3,6 +3,7 @@ import { AlertTriangle, Radar, RotateCcw, X } from 'lucide-react';
 import type { NmapScan } from './types';
 import { parseNmapXml } from './parser/nmapXml';
 import { useI18n } from './i18n/I18nProvider';
+import RenameScan from './components/RenameScan';
 import UploadView from './components/UploadView';
 import Workspace from './components/Workspace';
 
@@ -11,10 +12,13 @@ export default function App() {
   const [scan, setScan] = useState<NmapScan | null>(null);
   const [hideWarning, setHideWarning] = useState(false);
   const [uploadKey, setUploadKey] = useState(0);
+  const [viewKey, setViewKey] = useState(0);
+  const [renamingScan, setRenamingScan] = useState(false);
 
   const resetScan = () => {
     setScan(null);
     setHideWarning(false);
+    setRenamingScan(false);
     setUploadKey((key) => key + 1);
   };
 
@@ -22,6 +26,12 @@ export default function App() {
     const parsed = parseNmapXml(xml, filename, t);
     setScan({ ...parsed, warnings: [...extraWarnings, ...parsed.warnings] });
     setHideWarning(false);
+    setRenamingScan(false);
+    setViewKey((key) => key + 1);
+  };
+
+  const renameSavedScan = (name: string) => {
+    setScan((current) => (current ? { ...current, filename: name } : current));
   };
 
   const openPorts = scan
@@ -50,8 +60,15 @@ export default function App() {
           <div className="header-right">
             <div className="header-file" title={scan.filename || t('app.unnamedXml')}>
               <span className="dot dot-green" />
-              {scan.filename || t('app.scanLoaded')}
-              <span className="muted">
+              {!renamingScan && (
+                <span className="header-file-name">{scan.filename || t('app.scanLoaded')}</span>
+              )}
+              <RenameScan
+                filename={scan.filename}
+                onRenamed={renameSavedScan}
+                onEditingChange={setRenamingScan}
+              />
+              {!renamingScan && <span className="muted">
                 {' · '}
                 {t('app.hosts', { count: formatNumber(scan.hosts.length) })}
                 {' · '}
@@ -62,7 +79,7 @@ export default function App() {
                     {formatDateTime(validStartDate, { dateStyle: 'medium', timeStyle: 'short' })}
                   </>
                 )}
-              </span>
+              </span>}
             </div>
             <button className="btn btn-ghost" onClick={resetScan}>
               <RotateCcw size={15} /> {t('app.newScan')}
@@ -82,7 +99,7 @@ export default function App() {
       ) : null}
 
       {scan ? (
-        <Workspace key={scan.filename + scan.args + locale} scan={scan} />
+        <Workspace key={`${viewKey}:${locale}`} scan={scan} />
       ) : (
         <UploadView key={uploadKey} onLoad={loadXml} />
       )}

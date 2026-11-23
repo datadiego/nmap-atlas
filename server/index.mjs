@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { ValidationError, cancelScan, getNmapVersion, listScans, readScan, runNmap } from './nmap.mjs';
+import { ValidationError, cancelScan, getNmapVersion, listScans, readScan, renameScan, runNmap } from './nmap.mjs';
 import { calculateRange, getIpcCalcVersion } from './ipcalc.mjs';
 import { serveStatic } from './static.mjs';
 
@@ -65,6 +65,11 @@ export function createServer(config) {
 
       if (pathname === '/api/scans' && req.method === 'GET') {
         return sendJson(res, 200, { scans: await listScans(config.scansDir) });
+      }
+
+      if (pathname === '/api/scans/rename' && req.method === 'POST') {
+        const { from, to } = await readJson(req);
+        return sendJson(res, 200, { name: await renameScan(config.scansDir, from, to) });
       }
 
       if (pathname.startsWith('/api/scans/') && req.method === 'GET') {
