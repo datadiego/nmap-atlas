@@ -159,7 +159,7 @@ export const es = {
   'scan.calcRangeTitle': 'Calcular rangos con ipcalc',
   'scan.largeDiscovery': 'Un /{prefix} son {count} IPs: el descubrimiento puede tardar varios minutos. «Tiempo por host» no acelera esta fase.',
   'scan.additionalOptions': 'Opciones adicionales',
-  'scan.command': 'Comando que se ejecutará',
+  'scan.command': 'Comando',
   'scan.runNoServer': 'No hay conexión con el servidor local. Inicia Nmap Atlas desde la CLI para escanear.',
   'scan.runError': 'No se pudo ejecutar el escaneo.',
   'scan.errorStatus': 'Error {status}',

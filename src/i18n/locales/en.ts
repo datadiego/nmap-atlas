@@ -161,7 +161,7 @@ export const en: Translation = {
   'scan.calcRangeTitle': 'Calculate ranges with ipcalc',
   'scan.largeDiscovery': 'A /{prefix} contains {count} IPs: discovery may take several minutes. “Per-host timeout” does not speed up this phase.',
   'scan.additionalOptions': 'Additional options',
-  'scan.command': 'Command to be run',
+  'scan.command': 'Command',
   'scan.runNoServer': 'No connection to the local server. Start Nmap Atlas from the CLI to scan.',
   'scan.runError': 'Could not run the scan.',
   'scan.errorStatus': 'Error {status}',
