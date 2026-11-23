@@ -23,6 +23,15 @@ const ALLOWED_OPTIONS = new Set([
   '-sS',
   '-sT',
   '-sU',
+  '-sN',
+  '-sF',
+  '-sX',
+  '-sA',
+  '-sW',
+  '-sM',
+  '-sY',
+  '-sZ',
+  '-sO',
   '-sn',
   '-sL',
   '-sV',
@@ -42,6 +51,11 @@ const ALLOWED_OPTIONS = new Set([
   '-PS80,443,5223',
   '-PA80,443',
   '-PU5353,1900',
+  '-PS80,443',
+  '-PU53,1900',
+  '-sIzombie',
+  '-bftp.relay',
+  '--scanflags=SYNACK',
   '--max-retries=1',
   '--max-retries=2',
   '-n',
@@ -49,6 +63,14 @@ const ALLOWED_OPTIONS = new Set([
   '-6',
   '--traceroute',
 ]);
+
+// Opciones con argumento editable: se valida el prefijo y el formato del valor.
+const ALLOWED_OPTION_PATTERNS = [
+  /^-sI[A-Za-z0-9._:-]{1,255}$/,
+  /^-b(?:[A-Za-z0-9._-]+(?::[A-Za-z0-9._-]+)?@)?[A-Za-z0-9._-]+(?::\d{1,5})?$/,
+  /^--scanflags=[A-Z]{1,64}$/,
+  /^-P[SUA][A-Za-z0-9,.-]{1,80}$/,
+];
 
 const ALLOWED_TIMINGS = new Set(['-T0', '-T1', '-T2', '-T3', '-T4', '-T5']);
 const MIN_TIMEOUT_MS = 1_000;
@@ -72,15 +94,16 @@ const BLOCKED_FLAG_PREFIXES = [
   '--resume',
   '--stylesheet',
 ];
-// La coma se permite dentro del flag para sondas con lista de puertos (-PS80,443).
-const FLAG_PATTERN = /^--?[A-Za-z][A-Za-z0-9._,-]*(?:=([A-Za-z0-9._:%+/=,-]{1,80}))?$/;
-const VALUE_PATTERN = /^[A-Za-z0-9._:%+/=-]{1,80}$/;
+// Comas, dos puntos y @ se permiten para listas de puertos, zombies y relays FTP.
+const FLAG_PATTERN = /^--?[A-Za-z][A-Za-z0-9._,@:-]*(?:=([A-Za-z0-9._:%+/=,-]{1,80}))?$/;
+const VALUE_PATTERN = /^[A-Za-z0-9._:%+/=@-]{1,80}$/;
 const FLAGS_WITH_VALUE = new Set([
   '--scan-delay', '--max-scan-delay', '--host-timeout',
   '--min-rtt-timeout', '--max-rtt-timeout', '--initial-rtt-timeout',
   '--min-rate', '--max-rate', '--min-parallelism', '--max-parallelism',
   '--max-retries', '--ttl', '-e', '-S', '-g', '--source-port',
   '--data-string', '--data-length', '--spoof-mac', '--dns-servers',
+  '-sI', '-b', '--scanflags', '-PS', '-PA', '-PU',
 ]);
 
 function estimateTargets(raw) {
@@ -127,7 +150,9 @@ function validateOptions(raw) {
   if (raw == null) return [];
   if (!Array.isArray(raw)) throw new ValidationError('Las opciones deben ser una lista.');
   const options = raw.filter((value) => typeof value === 'string' && value.trim());
-  const invalid = options.find((option) => !ALLOWED_OPTIONS.has(option));
+  const invalid = options.find(
+    (option) => !ALLOWED_OPTIONS.has(option) && !ALLOWED_OPTION_PATTERNS.some((pattern) => pattern.test(option)),
+  );
   if (invalid) throw new ValidationError(`Opción no permitida: ${invalid}`);
   return [...new Set(options)];
 }

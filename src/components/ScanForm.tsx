@@ -26,11 +26,18 @@ interface ScanProgress {
   log: string[];
 }
 
+interface ScanOptionArg {
+  prefix: string;
+  defaultValue: string;
+  placeholderKey: TranslationKey;
+}
+
 interface ScanOption {
   flag: string;
   labelKey: TranslationKey;
   docKey: TranslationKey;
   docsUrl: string;
+  arg?: ScanOptionArg;
 }
 
 interface OptionTooltip {
@@ -76,6 +83,69 @@ const OPTION_GROUPS: { titleKey: TranslationKey; options: ScanOption[] }[] = [
         flag: '-sU', labelKey: 'option.sU.label',
         docKey: 'option.sU.doc',
         docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sN', labelKey: 'option.sN.label',
+        docKey: 'option.sN.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sF', labelKey: 'option.sF.label',
+        docKey: 'option.sF.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sX', labelKey: 'option.sX.label',
+        docKey: 'option.sX.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sA', labelKey: 'option.sA.label',
+        docKey: 'option.sA.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sW', labelKey: 'option.sW.label',
+        docKey: 'option.sW.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sM', labelKey: 'option.sM.label',
+        docKey: 'option.sM.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sY', labelKey: 'option.sY.label',
+        docKey: 'option.sY.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sZ', labelKey: 'option.sZ.label',
+        docKey: 'option.sZ.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-sI', labelKey: 'option.sI.label',
+        docKey: 'option.sI.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+        arg: { prefix: '-sI', defaultValue: 'zombie', placeholderKey: 'option.sI.value' },
+      },
+      {
+        flag: '-sO', labelKey: 'option.sO.label',
+        docKey: 'option.sO.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+      },
+      {
+        flag: '-b', labelKey: 'option.b.label',
+        docKey: 'option.b.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+        arg: { prefix: '-b', defaultValue: 'ftp.relay', placeholderKey: 'option.b.value' },
+      },
+      {
+        flag: '--scanflags', labelKey: 'option.scanflags.label',
+        docKey: 'option.scanflags.doc',
+        docsUrl: 'https://nmap.org/book/man-port-scanning-techniques.html',
+        arg: { prefix: '--scanflags=', defaultValue: 'SYNACK', placeholderKey: 'option.scanflags.value' },
       },
       {
         flag: '-sn', labelKey: 'option.sn.label',
@@ -138,6 +208,39 @@ const OPTION_GROUPS: { titleKey: TranslationKey; options: ScanOption[] }[] = [
         docsUrl: 'https://nmap.org/book/man-host-discovery.html',
       },
       {
+        flag: '-PR', labelKey: 'option.PR.label',
+        docKey: 'option.PR.doc',
+        docsUrl: 'https://nmap.org/book/man-host-discovery.html',
+      },
+      {
+        flag: '-PP', labelKey: 'option.PP.label',
+        docKey: 'option.PP.doc',
+        docsUrl: 'https://nmap.org/book/man-host-discovery.html',
+      },
+      {
+        flag: '-PM', labelKey: 'option.PM.label',
+        docKey: 'option.PM.doc',
+        docsUrl: 'https://nmap.org/book/man-host-discovery.html',
+      },
+      {
+        flag: '-PS', labelKey: 'option.PS.label',
+        docKey: 'option.PS.doc',
+        docsUrl: 'https://nmap.org/book/man-host-discovery.html',
+        arg: { prefix: '-PS', defaultValue: '80,443', placeholderKey: 'option.portList.value' },
+      },
+      {
+        flag: '-PA', labelKey: 'option.PA.label',
+        docKey: 'option.PA.doc',
+        docsUrl: 'https://nmap.org/book/man-host-discovery.html',
+        arg: { prefix: '-PA', defaultValue: '80,443', placeholderKey: 'option.portList.value' },
+      },
+      {
+        flag: '-PU', labelKey: 'option.PU.label',
+        docKey: 'option.PU.doc',
+        docsUrl: 'https://nmap.org/book/man-host-discovery.html',
+        arg: { prefix: '-PU', defaultValue: '53,1900', placeholderKey: 'option.portList.value' },
+      },
+      {
         flag: '-F', labelKey: 'option.F.label',
         docKey: 'option.F.doc',
         docsUrl: 'https://nmap.org/book/man-port-specification.html',
@@ -186,15 +289,60 @@ const OPTION_GROUPS: { titleKey: TranslationKey; options: ScanOption[] }[] = [
   },
 ];
 
-// Técnicas incompatibles entre sí y opciones de DNS contrapuestas.
-const EXCLUSIVE_FLAGS: Record<string, readonly string[]> = {
-  '-sS': ['-sT', '-sn', '-sL'],
-  '-sT': ['-sS', '-sn', '-sL'],
-  '-sn': ['-sS', '-sT', '-sU', '-sL', '-A'],
-  '-sL': ['-sS', '-sT', '-sU', '-sn', '-A'],
-  '-A': ['-sn', '-sL'],
-  '-n': ['-R'],
-  '-R': ['-n'],
+const ALL_OPTIONS = OPTION_GROUPS.flatMap((group) => group.options);
+const OPTION_BY_FLAG = new Map(ALL_OPTIONS.map((option) => [option.flag, option]));
+
+const TCP_SCAN_FLAGS = ['-sS', '-sT', '-sN', '-sF', '-sX', '-sA', '-sW', '-sM', '-sI', '-b', '--scanflags'] as const;
+const SCTP_SCAN_FLAGS = ['-sY', '-sZ'] as const;
+const PORT_SCAN_FLAGS = [...TCP_SCAN_FLAGS, '-sU', ...SCTP_SCAN_FLAGS, '-sO'] as const;
+const DISCOVERY_PROBES = ['-PR', '-PE', '-PP', '-PM', '-PS', '-PA', '-PU'] as const;
+
+// Solo una técnica TCP, una SCTP y UDP pueden combinarse; -sn/-sL no escanean puertos.
+const EXCLUSIVE_FLAGS: Record<string, readonly string[]> = (() => {
+  const rules: Record<string, readonly string[]> = {
+    '-sU': ['-sO', '-sn', '-sL'],
+    '-sO': [...PORT_SCAN_FLAGS.filter((flag) => flag !== '-sO'), '-sn', '-sL'],
+    '-sn': [...PORT_SCAN_FLAGS, '-sL', '-A', '-Pn'],
+    '-sL': [...PORT_SCAN_FLAGS, '-sn', '-A', '-Pn'],
+    '-A': ['-sn', '-sL'],
+    '-Pn': [...DISCOVERY_PROBES, '-sn', '-sL'],
+    '-n': ['-R'],
+    '-R': ['-n'],
+  };
+  for (const flag of TCP_SCAN_FLAGS) {
+    rules[flag] = [...TCP_SCAN_FLAGS.filter((other) => other !== flag), '-sO', '-sn', '-sL'];
+  }
+  for (const flag of SCTP_SCAN_FLAGS) {
+    rules[flag] = [...SCTP_SCAN_FLAGS.filter((other) => other !== flag), '-sO', '-sn', '-sL'];
+  }
+  for (const flag of DISCOVERY_PROBES) rules[flag] = ['-Pn'];
+  return rules;
+})();
+
+const parseOptionFlag = (flag: string): { base: string; value?: string } | null => {
+  const direct = OPTION_BY_FLAG.get(flag);
+  if (direct) {
+    return direct.arg ? { base: direct.flag, value: direct.arg.defaultValue } : { base: direct.flag };
+  }
+  for (const option of ALL_OPTIONS) {
+    if (!option.arg) continue;
+    if (flag.startsWith(option.arg.prefix) && flag.length > option.arg.prefix.length) {
+      return { base: option.flag, value: flag.slice(option.arg.prefix.length) };
+    }
+  }
+  return null;
+};
+
+const parseOptionFlags = (flags: readonly string[]) => {
+  const bases = new Set<string>();
+  const args: Record<string, string> = {};
+  for (const flag of flags) {
+    const parsed = parseOptionFlag(flag);
+    if (!parsed) continue;
+    bases.add(parsed.base);
+    if (parsed.value !== undefined) args[parsed.base] = parsed.value;
+  }
+  return { bases, args };
 };
 
 const TIMINGS = ['-T0', '-T1', '-T2', '-T3', '-T4', '-T5'] as const;
@@ -215,10 +363,6 @@ const HOST_TIMEOUTS: ReadonlyArray<{ value: string; label: string; labelKey?: Tr
   { value: '300000', label: '5 min' },
 ] as const;
 const STATUS_KEY = 'nmap-atlas:status-dismissed';
-const KNOWN_FLAGS = new Set<string>([
-  ...PROFILES.flatMap((item) => item.flags),
-  ...OPTION_GROUPS.flatMap((group) => group.options.map((option) => option.flag)),
-]);
 const defaultOptionsFor = (profileId: string) =>
   new Set(PROFILES.find((item) => item.id === profileId)?.flags ?? []);
 
@@ -274,15 +418,16 @@ export default function ScanForm({ status, onLoad }: Props) {
         ? '-T5'
         : DEFAULT_FORM_VALUES.timing,
   );
-  const [options, setOptions] = useState<Set<string>>(() => {
+  const initialOptions = useMemo(() => {
     const saved = rememberedForm.options;
-    if (remember.options && Array.isArray(saved)) {
-      return new Set(
-        saved.filter((flag): flag is string => typeof flag === 'string' && KNOWN_FLAGS.has(flag)),
-      );
-    }
-    return defaultOptionsFor(initialProfile);
-  });
+    const flags =
+      remember.options && Array.isArray(saved)
+        ? saved.filter((flag): flag is string => typeof flag === 'string')
+        : [...defaultOptionsFor(initialProfile)];
+    return parseOptionFlags(flags);
+  }, [remember.options, rememberedForm.options, initialProfile]);
+  const [options, setOptions] = useState<Set<string>>(() => new Set(initialOptions.bases));
+  const [optionArgs, setOptionArgs] = useState<Record<string, string>>(() => initialOptions.args);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [showIpcCalc, setShowIpcCalc] = useState(false);
@@ -317,15 +462,28 @@ export default function ScanForm({ status, onLoad }: Props) {
   const tooltipTimer = useRef<number | null>(null);
   const tooltipShowTimer = useRef<number | null>(null);
 
+  const effectiveOptions = useMemo(
+    () =>
+      [...options]
+        .map((base) => {
+          const arg = OPTION_BY_FLAG.get(base)?.arg;
+          if (!arg) return base;
+          const value = (optionArgs[base] ?? arg.defaultValue).trim();
+          return value ? `${arg.prefix}${value}` : null;
+        })
+        .filter((flag): flag is string => flag !== null),
+    [options, optionArgs],
+  );
+
   const autoCommand = useMemo(() => {
     const flags = [
       ...(hostTimeoutMs ? ['--host-timeout', `${hostTimeoutMs}ms`] : []),
-      ...options,
+      ...effectiveOptions,
       timing,
     ];
     if (ports.trim() && !options.has('-p-')) flags.push('-p', ports.trim());
     return [status?.nmapCommand || 'nmap', ...flags, '-oX', '-', target.trim() || t('scan.targetPlaceholderCommand')].join(' ');
-  }, [target, ports, timing, options, hostTimeoutMs, status?.nmapCommand, t]);
+  }, [target, ports, timing, options, effectiveOptions, hostTimeoutMs, status?.nmapCommand, t]);
   const [command, setCommand] = useState(autoCommand);
 
   const largeDiscovery = useMemo(() => {
@@ -410,9 +568,9 @@ export default function ScanForm({ status, onLoad }: Props) {
     if (remember.timeout) saved.timeout = timeoutMs;
     if (remember.hostTimeout) saved.hostTimeout = hostTimeoutMs;
     if (remember.timing) saved.timing = timing;
-    if (remember.options) saved.options = [...options];
+    if (remember.options) saved.options = effectiveOptions;
     saveRememberedForm(remember, saved);
-  }, [remember, target, ports, profile, timeoutMs, hostTimeoutMs, timing, options]);
+  }, [remember, target, ports, profile, timeoutMs, hostTimeoutMs, timing, effectiveOptions]);
 
   const showOptionTooltip = (option: ScanOption, element: HTMLElement) => {
     if (tooltipTimer.current !== null) {
@@ -477,8 +635,10 @@ export default function ScanForm({ status, onLoad }: Props) {
   const selectProfile = (id: string) => {
     const flags: readonly string[] = PROFILES.find((item) => item.id === id)?.flags ?? [];
     setProfile(id);
-    // Los flags sin casilla (p. ej. --max-retries=1) también viajan en options.
-    setOptions(new Set(flags));
+    // Los flags con valor (p. ej. -PS80,443) se separan en casilla + argumento.
+    const parsed = parseOptionFlags(flags);
+    setOptions(parsed.bases);
+    setOptionArgs(parsed.args);
     if (flags.includes('-p-')) setPorts('');
     if (id === 'hosts') setTiming('-T5');
   };
@@ -546,7 +706,7 @@ export default function ScanForm({ status, onLoad }: Props) {
           profile,
           ports,
           timing,
-          options: [...options],
+          options: effectiveOptions,
           command,
           timeoutMs: timeoutMs || undefined,
           hostTimeoutMs: hostTimeoutMs || undefined,
@@ -752,25 +912,38 @@ export default function ScanForm({ status, onLoad }: Props) {
               <h4 className="scan-option-group-title">{t(group.titleKey)}</h4>
               <div className="scan-option-grid">
                 {group.options.map((option) => (
-                  <label
-                    key={option.flag}
-                    className="scan-check"
-                    onMouseEnter={(event) => showOptionTooltip(option, event.currentTarget)}
-                    onMouseLeave={hideOptionTooltip}
-                    onFocus={(event) => showOptionTooltip(option, event.currentTarget)}
-                    onBlur={hideOptionTooltipNow}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={options.has(option.flag)}
-                      aria-describedby={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`}
-                      onChange={() => toggleOption(option.flag)}
-                    />
-                    <span><code>{option.flag}</code> {t(option.labelKey)}</span>
-                    <span id={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`} className="sr-only">
-                      {t(option.docKey)}
-                    </span>
-                  </label>
+                  <div className="scan-option" key={option.flag}>
+                    <label
+                      className="scan-check"
+                      onMouseEnter={(event) => showOptionTooltip(option, event.currentTarget)}
+                      onMouseLeave={hideOptionTooltip}
+                      onFocus={(event) => showOptionTooltip(option, event.currentTarget)}
+                      onBlur={hideOptionTooltipNow}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={options.has(option.flag)}
+                        aria-describedby={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`}
+                        onChange={() => toggleOption(option.flag)}
+                      />
+                      <span><code>{option.flag}</code> {t(option.labelKey)}</span>
+                      <span id={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`} className="sr-only">
+                        {t(option.docKey)}
+                      </span>
+                    </label>
+                    {option.arg && options.has(option.flag) && (
+                      <input
+                        className="scan-input scan-option-arg"
+                        value={optionArgs[option.flag] ?? option.arg.defaultValue}
+                        placeholder={t(option.arg.placeholderKey)}
+                        aria-label={t(option.arg.placeholderKey)}
+                        spellCheck={false}
+                        onChange={(event) =>
+                          setOptionArgs((current) => ({ ...current, [option.flag]: event.target.value }))
+                        }
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
             </section>
