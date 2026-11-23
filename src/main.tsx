@@ -4,6 +4,9 @@ import '@xyflow/react/dist/style.css';
 import './styles.css';
 import App from './App';
 import { I18nProvider } from './i18n/I18nProvider';
+import { applyTheme, loadTheme } from './theme';
+
+applyTheme(loadTheme());
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

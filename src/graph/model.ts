@@ -58,15 +58,15 @@ export const NODE_SIZES: Record<NodeKind, { width: number; height: number }> = {
 };
 
 const edgeColor: Record<string, string> = {
-  open: '#b8bb26',
-  filtered: '#fe8019',
-  closed: '#928374',
-  unfiltered: '#fe8019',
-  'open|filtered': '#fe8019',
+  open: 'var(--accent)',
+  filtered: 'var(--amber)',
+  closed: 'var(--dim)',
+  unfiltered: 'var(--amber)',
+  'open|filtered': 'var(--amber)',
 };
 
 export function stateColor(state: string): string {
-  return edgeColor[state] ?? '#928374';
+  return edgeColor[state] ?? 'var(--dim)';
 }
 
 export function openPortCount(host: NmapHost): number {
@@ -92,7 +92,7 @@ function makeNode(
 }
 
 function makeEdge(source: string, target: string, state = ''): Edge {
-  const color = state ? stateColor(state) : '#504945';
+  const color = state ? stateColor(state) : 'var(--surface-3)';
   return {
     id: `e-${source}-${target}`,
     source,

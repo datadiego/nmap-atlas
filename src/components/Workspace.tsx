@@ -235,24 +235,24 @@ function WorkspaceInner({ scan }: Props) {
             maxZoom={2}
             proOptions={{ hideAttribution: false }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#3c3836" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--surface-2)" />
             <Controls showInteractive={false} />
             {showMiniMap && (
               <MiniMap
                 position="bottom-right"
                 pannable
                 zoomable
-                maskColor="rgba(29, 32, 33, 0.75)"
+                maskColor="rgba(var(--bg-rgb), 0.75)"
                 nodeColor={(node) => {
                   const data = (node as EntityNode).data;
-                  if (data.dimmed) return '#3c3836';
+                  if (data.dimmed) return 'var(--surface-2)';
                   switch (data.kind) {
                     case 'group': return 'transparent';
-                    case 'scan': return '#b8bb26';
-                    case 'subnet': return '#d3869b';
-                    case 'host': return '#8ec07c';
+                    case 'scan': return 'var(--accent)';
+                    case 'subnet': return 'var(--pink)';
+                    case 'host': return 'var(--teal)';
                     case 'port': return stateColor(data.state);
-                    default: return '#928374';
+                    default: return 'var(--dim)';
                   }
                 }}
               />

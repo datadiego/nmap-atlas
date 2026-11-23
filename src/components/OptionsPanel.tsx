@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Settings2 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { languageName, locales, type Locale } from '../i18n';
+import { loadTheme, saveTheme, themes, type Theme } from '../theme';
 import {
   DEFAULT_REMEMBER,
   REMEMBER_FIELDS,
@@ -15,6 +16,7 @@ import {
 export default function OptionsPanel() {
   const { t, locale, setLocale } = useI18n();
   const [remember, setRemember] = useState<RememberSettings>(loadRememberSettings);
+  const [theme, setTheme] = useState<Theme>(loadTheme);
   const allRemembered = REMEMBER_FIELDS.every(({ id }) => remember[id]);
 
   const toggleField = (field: RememberField) => {
@@ -73,6 +75,25 @@ export default function OptionsPanel() {
             {(Object.keys(locales) as Locale[]).map((code) => (
               <option key={code} value={code}>
                 {languageName(locale, code)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="options-card-field">
+          <label className="scan-label" htmlFor="options-theme">{t('options.theme')}</label>
+          <select
+            id="options-theme"
+            className="scan-input"
+            value={theme}
+            onChange={(event) => {
+              const next = event.target.value as Theme;
+              saveTheme(next);
+              setTheme(next);
+            }}
+          >
+            {themes.map((code) => (
+              <option key={code} value={code}>
+                {t(`theme.${code}`)}
               </option>
             ))}
           </select>
