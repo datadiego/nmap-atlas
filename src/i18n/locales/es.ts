@@ -263,6 +263,8 @@ export const es = {
   'list.empty': 'No hay hosts que coincidan con la búsqueda o el filtro.',
   'list.expandHost': 'Mostrar puertos y detalles de {name}',
   'list.collapseHost': 'Ocultar puertos y detalles de {name}',
+  'list.expandSubnetHosts': 'Mostrar los detalles de todos los hosts de {name}',
+  'list.collapseSubnetHosts': 'Ocultar los detalles de todos los hosts de {name}',
   'node.hidePorts': 'Ocultar puertos',
   'node.showPorts': 'Mostrar puertos',
 

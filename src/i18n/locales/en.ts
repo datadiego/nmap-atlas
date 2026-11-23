@@ -265,6 +265,8 @@ export const en: Translation = {
   'list.empty': 'No hosts match the search or the filter.',
   'list.expandHost': 'Show ports and details for {name}',
   'list.collapseHost': 'Hide ports and details for {name}',
+  'list.expandSubnetHosts': 'Show details for all hosts in {name}',
+  'list.collapseSubnetHosts': 'Hide details for all hosts in {name}',
   'node.hidePorts': 'Hide ports',
   'node.showPorts': 'Show ports',
 

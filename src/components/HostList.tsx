@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import type { NmapHost } from '../types';
 import { stateColor, type SubnetInfo } from '../graph/model';
 import { countOpenPorts } from '../graph/subnets';
@@ -18,6 +18,7 @@ interface Props {
   expandedHosts: Set<string>;
   onToggleSubnet: (id: string) => void;
   onToggleHost: (key: string) => void;
+  onSetHostsExpanded: (keys: string[], expanded: boolean) => void;
   onNotesChange: (hostKey: string, notes: string) => void;
   onNotesCommit: (hostKey: string) => void;
   scrollTo: string | null;
@@ -105,6 +106,7 @@ export default function HostList({
   expandedHosts,
   onToggleSubnet,
   onToggleHost,
+  onSetHostsExpanded,
   onNotesChange,
   onNotesCommit,
   scrollTo,
@@ -139,23 +141,42 @@ export default function HostList({
           const subnetOpen = expandedSubnets.has(subnet.id);
           const openCount = groupHosts.reduce((total, host) => total + countOpenPorts(host), 0);
           const upCount = groupHosts.filter((host) => host.state === 'up').length;
+          const anyHostOpen = groupHosts.some((host) => expandedHosts.has(host.key));
 
           return (
             <section className="host-list-subnet" key={subnet.id}>
-              <button
-                className="host-list-subnet-head"
-                onClick={() => onToggleSubnet(subnet.id)}
-                aria-expanded={subnetOpen}
-                title={subnet.name}
-              >
-                <ChevronRight size={14} className={`host-list-caret ${subnetOpen ? 'open' : ''}`} />
-                <strong>{subnet.name}</strong>
-                <span className="host-list-subnet-meta">
-                  {t('app.hosts', { count: formatNumber(groupHosts.length) })}
-                  {' · '}{t('graph.active', { count: formatNumber(upCount) })}
-                  {' · '}{t('graph.open', { count: formatNumber(openCount) })}
-                </span>
-              </button>
+              <div className="host-list-subnet-head">
+                <button
+                  className="host-list-subnet-toggle"
+                  onClick={() => onToggleSubnet(subnet.id)}
+                  aria-expanded={subnetOpen}
+                  title={subnet.name}
+                >
+                  <ChevronRight size={14} className={`host-list-caret ${subnetOpen ? 'open' : ''}`} />
+                  <strong>{subnet.name}</strong>
+                  <span className="host-list-subnet-meta">
+                    {t('app.hosts', { count: formatNumber(groupHosts.length) })}
+                    {' · '}{t('graph.active', { count: formatNumber(upCount) })}
+                    {' · '}{t('graph.open', { count: formatNumber(openCount) })}
+                  </span>
+                </button>
+                <button
+                  className="icon-button host-list-subnet-collapse"
+                  onClick={() => {
+                    const expand = !anyHostOpen;
+                    onSetHostsExpanded(groupHosts.map((host) => host.key), expand);
+                    if (expand && !subnetOpen) onToggleSubnet(subnet.id);
+                  }}
+                  title={anyHostOpen
+                    ? t('list.collapseSubnetHosts', { name: subnet.name })
+                    : t('list.expandSubnetHosts', { name: subnet.name })}
+                  aria-label={anyHostOpen
+                    ? t('list.collapseSubnetHosts', { name: subnet.name })
+                    : t('list.expandSubnetHosts', { name: subnet.name })}
+                >
+                  {anyHostOpen ? <ChevronsDownUp size={15} /> : <ChevronsUpDown size={15} />}
+                </button>
+              </div>
 
               {subnetOpen && groupHosts.map((host) => {
                 const expanded = expandedHosts.has(host.key);

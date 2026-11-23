@@ -338,6 +338,17 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
 
   const clearScroll = useCallback(() => setScrollTo(null), []);
 
+  const setHostsExpanded = useCallback((keys: string[], expanded: boolean) => {
+    setExpandedHosts((current) => {
+      const next = new Set(current);
+      keys.forEach((key) => {
+        if (expanded) next.add(key);
+        else next.delete(key);
+      });
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
@@ -426,6 +437,7 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
             expandedHosts={expandedHosts}
             onToggleSubnet={(id) => setExpandedSubnets((current) => toggleInSet(current, id))}
             onToggleHost={(key) => setExpandedHosts((current) => toggleInSet(current, key))}
+            onSetHostsExpanded={setHostsExpanded}
             onNotesChange={onNotesChange}
             onNotesCommit={onNotesCommit}
             scrollTo={scrollTo}
