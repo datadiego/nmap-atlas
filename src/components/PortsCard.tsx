@@ -11,6 +11,7 @@ interface Props {
   query: string;
   onClose: () => void;
   onNotesChange: (hostKey: string, notes: string) => void;
+  onNotesCommit: (hostKey: string) => void;
 }
 
 const stateKeys: Record<string, TranslationKey> = {
@@ -39,7 +40,7 @@ function portText(port: NmapPort): string {
     .toLowerCase();
 }
 
-export default function PortsCard({ hosts, query, onClose, onNotesChange }: Props) {
+export default function PortsCard({ hosts, query, onClose, onNotesChange, onNotesCommit }: Props) {
   const { t, formatNumber } = useI18n();
   const q = query.trim().toLowerCase();
   const total = hosts.reduce((sum, host) => sum + host.ports.length, 0);
@@ -80,6 +81,7 @@ export default function PortsCard({ hosts, query, onClose, onNotesChange }: Prop
               host={host}
               open={hosts.length === 1}
               onNotesChange={(notes) => onNotesChange(host.key, notes)}
+              onNotesCommit={() => onNotesCommit(host.key)}
             />
 
             {[...host.ports]

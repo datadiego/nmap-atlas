@@ -98,6 +98,7 @@ export interface NmapHost {
   times: { srtt: string; rttvar: string; to: string } | null;
   scripts: NmapScript[];
   notes: string;
+  hasXmlNote: boolean;
 }
 
 export interface RunStats {

@@ -25,6 +25,8 @@ export const es = {
   'upload.dropFormats': '.xml · se admite la salida de nmap -oX / -oA',
   'upload.savedScans': 'Escaneos guardados ({count})',
   'upload.readError': 'No se pudo leer el archivo.',
+  'upload.copyError': 'No se pudo crear la copia en scans.',
+  'upload.copySaved': 'Copia creada en scans: {name}. El archivo original no se ha modificado.',
   'upload.openErrorStatus': 'Error {status} al abrir el escaneo.',
   'upload.openError': 'No se pudo abrir el escaneo guardado.',
   'upload.deleteTitle': 'Borrar escaneo',

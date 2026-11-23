@@ -27,6 +27,8 @@ export const en: Translation = {
   'upload.dropFormats': '.xml · nmap -oX / -oA output supported',
   'upload.savedScans': 'Saved scans ({count})',
   'upload.readError': 'Could not read the file.',
+  'upload.copyError': 'Could not create the copy in scans.',
+  'upload.copySaved': 'Copy created in scans: {name}. The original file was not modified.',
   'upload.openErrorStatus': 'Error {status} while opening the scan.',
   'upload.openError': 'Could not open the saved scan.',
   'upload.deleteTitle': 'Delete scan',

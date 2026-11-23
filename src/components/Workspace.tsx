@@ -34,9 +34,10 @@ const nodeTypes: NodeTypes = { entity: EntityNodeView };
 interface Props {
   scan: NmapScan;
   onNotesChange: (hostKey: string, notes: string) => void;
+  onNotesCommit: (hostKey: string) => void;
 }
 
-function WorkspaceInner({ scan, onNotesChange }: Props) {
+function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
   const { t } = useI18n();
   const theme = useTheme();
   const model = useMemo(() => buildGraph(scan, t), [scan, t]);
@@ -289,6 +290,7 @@ function WorkspaceInner({ scan, onNotesChange }: Props) {
                   query={query}
                   onClose={closeCard}
                   onNotesChange={onNotesChange}
+                  onNotesCommit={onNotesCommit}
                 />
               </Panel>
             )}

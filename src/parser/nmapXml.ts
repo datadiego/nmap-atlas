@@ -157,6 +157,7 @@ function parseHost(el: Element, index: number): NmapHost {
   }));
   const portsEl = child(el, 'ports');
   const timesEl = child(el, 'times');
+  const noteEl = child(el, 'atlas-note');
 
   return {
     key: `host-${index}`,
@@ -180,7 +181,8 @@ function parseHost(el: Element, index: number): NmapHost {
         }
       : null,
     scripts: parseScripts(child(el, 'hostscript')),
-    notes: '',
+    notes: noteEl?.textContent?.trim() ?? '',
+    hasXmlNote: Boolean(noteEl),
   };
 }
 

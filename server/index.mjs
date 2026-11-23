@@ -1,5 +1,6 @@
 import http from 'node:http';
-import { ValidationError, cancelScan, deleteAllScans, deleteScan, getNmapVersion, listScans, readScan, renameScan, runNmap } from './nmap.mjs';
+import { ValidationError, cancelScan, deleteAllScans, deleteScan, getNmapVersion, listScans, readScan, renameScan, runNmap, saveUploadedScan } from './nmap.mjs';
+import { updateHostNote } from './notes.mjs';
 import { calculateRange, getIpcCalcVersion } from './ipcalc.mjs';
 import { serveStatic } from './static.mjs';
 
@@ -79,6 +80,26 @@ export function createServer(config) {
 
       if (pathname === '/api/scans/delete-all' && req.method === 'POST') {
         return sendJson(res, 200, { deleted: await deleteAllScans(config.scansDir) });
+      }
+
+      if (pathname === '/api/scans/upload' && req.method === 'POST') {
+        const { xml, filename } = await readJson(req);
+        if (typeof xml !== 'string' || !xml.trim()) {
+          throw new ValidationError('El XML está vacío.');
+        }
+        if (typeof filename !== 'string' || filename.length > 255) {
+          throw new ValidationError('Nombre de archivo no válido.');
+        }
+        return sendJson(res, 200, {
+          name: await saveUploadedScan(config.scansDir, xml, filename),
+        });
+      }
+
+      if (pathname === '/api/scans/note' && req.method === 'POST') {
+        const { name, index, notes } = await readJson(req);
+        return sendJson(res, 200, {
+          ok: await updateHostNote(config.scansDir, name, index, notes),
+        });
       }
 
       if (pathname.startsWith('/api/scans/') && req.method === 'GET') {

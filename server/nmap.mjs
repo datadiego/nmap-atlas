@@ -390,6 +390,31 @@ async function saveXml(scansDir, xml, target) {
   return name;
 }
 
+/** Guarda una copia de un XML subido sin tocar el archivo original del usuario. */
+export async function saveUploadedScan(scansDir, xml, originalName) {
+  await mkdir(scansDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const slug = String(originalName ?? '')
+    .replace(/\.xml$/i, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'upload';
+  const base = `upload-${stamp}-${slug}`;
+  let name = `${base}.xml`;
+  let suffix = 1;
+  while (true) {
+    try {
+      await stat(path.join(scansDir, name));
+      name = `${base}-${suffix += 1}.xml`;
+    } catch (error) {
+      if (error?.code === 'ENOENT') break;
+      throw error;
+    }
+  }
+  await writeFile(path.join(scansDir, name), xml, 'utf8');
+  return name;
+}
+
 /** Detiene un escaneo en curso y deja constancia en su stderr. */
 export function cancelScan(rawId, activeScans) {
   if (typeof rawId !== 'string' || !SAFE_SCAN_ID.test(rawId)) return false;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AlertTriangle, Radar, RotateCcw, X } from 'lucide-react';
 import type { NmapScan } from './types';
 import { parseNmapXml } from './parser/nmapXml';
@@ -15,6 +15,10 @@ export default function App() {
   const [uploadKey, setUploadKey] = useState(0);
   const [viewKey, setViewKey] = useState(0);
   const [renamingScan, setRenamingScan] = useState(false);
+  const scanRef = useRef<NmapScan | null>(null);
+  const noteTimers = useRef(new Map<string, number>());
+  const noteValues = useRef(new Map<string, string>());
+  scanRef.current = scan;
 
   const resetScan = () => {
     setScan(null);
@@ -25,11 +29,36 @@ export default function App() {
 
   const loadXml = (xml: string, filename: string, extraWarnings: string[] = []) => {
     const parsed = parseNmapXml(xml, filename, t);
-    const savedNotes = loadHostNotes();
-    parsed.hosts = parsed.hosts.map((host) => ({
-      ...host,
-      notes: savedNotes[hostNotesKey(filename, host.key)] ?? '',
-    }));
+    const legacy = loadHostNotes();
+    const pendingMigration: Array<{ index: number; notes: string }> = [];
+
+    parsed.hosts = parsed.hosts.map((host, index) => {
+      const legacyNote = legacy[hostNotesKey(filename, host.key)];
+      if (!host.hasXmlNote && legacyNote) {
+        pendingMigration.push({ index, notes: legacyNote });
+        return { ...host, notes: legacyNote };
+      }
+      return host;
+    });
+
+    if (pendingMigration.length > 0) {
+      void Promise.all(
+        pendingMigration.map(({ index, notes }) =>
+          fetch('/api/scans/note', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: filename, index, notes }),
+          }),
+        ),
+      )
+        .then((responses) => {
+          if (responses.every((response) => response.ok)) forgetHostNotes([filename]);
+        })
+        .catch(() => {
+          // Si no se puede migrar, la nota sigue visible en esta sesión.
+        });
+    }
+
     setScan({ ...parsed, warnings: [...extraWarnings, ...parsed.warnings] });
     setHideWarning(false);
     setRenamingScan(false);
@@ -52,21 +81,51 @@ export default function App() {
     });
   };
 
+  const persistHostNote = (hostKey: string) => {
+    const current = scanRef.current;
+    const notes = noteValues.current.get(hostKey);
+    if (!current || notes === undefined) return;
+    noteValues.current.delete(hostKey);
+    const index = Number(/^host-(\d+)$/.exec(hostKey)?.[1] ?? -1);
+    if (index < 0) return;
+    void fetch('/api/scans/note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: current.filename, index, notes }),
+    }).catch(() => {
+      // El XML no se ha podido actualizar; la nota sigue en la vista actual.
+    });
+  };
+
+  const flushHostNotes = (hostKey: string) => {
+    const timer = noteTimers.current.get(hostKey);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      noteTimers.current.delete(hostKey);
+    }
+    persistHostNote(hostKey);
+  };
+
   const updateHostNotes = (hostKey: string, notes: string) => {
+    noteValues.current.set(hostKey, notes);
     setScan((current) => {
       if (!current) return current;
-      const savedNotes = loadHostNotes();
-      const key = hostNotesKey(current.filename, hostKey);
-      if (notes.trim()) savedNotes[key] = notes;
-      else delete savedNotes[key];
-      saveHostNotes(savedNotes);
-      return {
-        ...current,
-        hosts: current.hosts.map((host) =>
-          host.key === hostKey ? { ...host, notes } : host,
-        ),
-      };
+      const hosts = current.hosts.map((host) =>
+        host.key === hostKey ? { ...host, notes } : host,
+      );
+      const next = { ...current, hosts };
+      scanRef.current = next;
+      return next;
     });
+    const previous = noteTimers.current.get(hostKey);
+    if (previous !== undefined) window.clearTimeout(previous);
+    noteTimers.current.set(
+      hostKey,
+      window.setTimeout(() => {
+        noteTimers.current.delete(hostKey);
+        persistHostNote(hostKey);
+      }, 500),
+    );
   };
 
   const openPorts = scan
@@ -134,7 +193,12 @@ export default function App() {
       ) : null}
 
       {scan ? (
-        <Workspace key={`${viewKey}:${locale}`} scan={scan} onNotesChange={updateHostNotes} />
+        <Workspace
+          key={`${viewKey}:${locale}`}
+          scan={scan}
+          onNotesChange={updateHostNotes}
+          onNotesCommit={flushHostNotes}
+        />
       ) : (
         <UploadView
           key={uploadKey}

@@ -55,7 +55,19 @@ export default function UploadView({ onLoad, onDeleteSaved, onDeleteAllSaved }: 
   const readFile = async (file: File) => {
     setError('');
     try {
-      onLoad(await file.text(), file.name);
+      const xml = await file.text();
+      const response = await fetch('/api/scans/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ xml, filename: file.name }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        name?: string;
+        error?: string;
+      };
+      if (!response.ok || !data.name) throw new Error(data.error || t('upload.copyError'));
+      await loadSaved();
+      onLoad(xml, data.name, [t('upload.copySaved', { name: data.name })]);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('upload.readError'));
     }
