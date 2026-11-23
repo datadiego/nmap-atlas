@@ -10,6 +10,7 @@ import {
   loadRememberSettings,
   saveRememberedForm,
   type RememberedForm,
+  type RememberSettings,
 } from '../remember';
 import IpcCalcPanel from './IpcCalcPanel';
 
@@ -221,6 +222,14 @@ const KNOWN_FLAGS = new Set<string>([
 const defaultOptionsFor = (profileId: string) =>
   new Set(PROFILES.find((item) => item.id === profileId)?.flags ?? []);
 
+/** Perfil con el que se abre el formulario, teniendo en cuenta lo recordado. */
+const initialProfileFor = (remember: RememberSettings, saved: Partial<RememberedForm>) => {
+  const profile = saved.profile;
+  return remember.profile && typeof profile === 'string' && PROFILES.some((item) => item.id === profile)
+    ? profile
+    : DEFAULT_FORM_VALUES.profile;
+};
+
 const newScanId = () =>
   globalThis.crypto?.randomUUID?.() ?? `scan-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -246,17 +255,13 @@ export default function ScanForm({ status, onLoad }: Props) {
   const { t, formatNumber } = useI18n();
   const [remember] = useState(loadRememberSettings);
   const [rememberedForm] = useState<Partial<RememberedForm>>(loadRememberedForm);
+  const initialProfile = initialProfileFor(remember, rememberedForm);
   const [target, setTarget] = useState(() =>
     remember.target && typeof rememberedForm.target === 'string'
       ? rememberedForm.target
       : DEFAULT_FORM_VALUES.target,
   );
-  const [profile, setProfile] = useState<string>(() => {
-    const saved = rememberedForm.profile;
-    return remember.profile && typeof saved === 'string' && PROFILES.some((item) => item.id === saved)
-      ? saved
-      : DEFAULT_FORM_VALUES.profile;
-  });
+  const [profile, setProfile] = useState<string>(initialProfile);
   const [ports, setPorts] = useState(() =>
     remember.ports && typeof rememberedForm.ports === 'string'
       ? rememberedForm.ports
@@ -265,7 +270,9 @@ export default function ScanForm({ status, onLoad }: Props) {
   const [timing, setTiming] = useState<string>(() =>
     remember.timing && typeof rememberedForm.timing === 'string'
       ? rememberedForm.timing
-      : DEFAULT_FORM_VALUES.timing,
+      : initialProfile === 'hosts'
+        ? '-T5'
+        : DEFAULT_FORM_VALUES.timing,
   );
   const [options, setOptions] = useState<Set<string>>(() => {
     const saved = rememberedForm.options;
@@ -274,7 +281,7 @@ export default function ScanForm({ status, onLoad }: Props) {
         saved.filter((flag): flag is string => typeof flag === 'string' && KNOWN_FLAGS.has(flag)),
       );
     }
-    return defaultOptionsFor(DEFAULT_FORM_VALUES.profile);
+    return defaultOptionsFor(initialProfile);
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
