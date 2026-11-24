@@ -141,7 +141,6 @@ export interface ApiStatus {
   nmapCommand: string;
   privileged: boolean;
   dbPath?: string;
-  scansDir: string;
   saving: boolean;
   savedScans: number;
   ipcalcAvailable: boolean;

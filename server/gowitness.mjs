@@ -48,7 +48,7 @@ function gowitnessCommand(config) {
 
 /** Solo se usa como dato informativo del estado; las imágenes viven en SQLite. */
 export function screenshotDir(config) {
-  return config.gowitnessDir ?? path.resolve(path.dirname(config.dbPath ?? config.scansDir ?? process.cwd()), 'screenshots');
+  return path.dirname(config.dbPath ?? process.cwd());
 }
 
 /** Comprueba si gowitness está disponible y devuelve su versión. */

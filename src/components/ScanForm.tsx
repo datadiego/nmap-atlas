@@ -804,7 +804,7 @@ export default function ScanForm({ status, onLoad }: Props) {
               <span>
                 Nmap <strong>{status?.nmapVersion}</strong> {t('scan.detected')}
                 {status?.privileged && t('scan.privileged')}{t('scan.xmlSavedIn')}
-                <code>{status?.dbPath ?? status?.scansDir}</code>
+                <code>{status?.dbPath ?? ''}</code>
               </span>
             </>
           ) : (

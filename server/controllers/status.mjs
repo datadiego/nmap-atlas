@@ -22,7 +22,6 @@ export async function get(c) {
     nmapCommand: command.join(' '),
     privileged,
     dbPath: config.dbPath,
-    scansDir: config.scansDir ?? '',
     saving: config.save,
     savedScans: count(db),
     ipcalcAvailable: Boolean(ipcalcVersion),

@@ -4,7 +4,6 @@ import path from 'node:path';
 import process from 'node:process';
 import { createApp } from '../server/app.mjs';
 import { initializeDatabase } from '../db/migrate.mjs';
-import { importLegacy } from '../db/importLegacy.mjs';
 
 const standalone = Boolean(globalThis.Bun?.isStandaloneExecutable);
 const embeddedDir = standalone ? (import.meta.dir ?? process.cwd()) : null;
@@ -23,16 +22,15 @@ Opciones:
       --host 0.0.0.0         Exponer en la red (solo en redes de confianza)
       --db-path <ruta>       Base de datos SQLite (por defecto ./data/nmap-atlas.sqlite)
                              También con NMAP_ATLAS_DB_PATH
-      --scans-dir <ruta>     Directorio legacy a importar en el primer arranque
       --timeout <ms>         Tiempo máximo por escaneo (por defecto 1800000 = 30 min)
       --host-timeout <ms>    Tiempo máximo por host (por defecto sin límite)
       --no-save              No guardar los escaneos en la base de datos
       --nmap-sudo            Ejecutar nmap con «sudo -n» (requiere NOPASSWD)
       --nmap-command <cmd>   Prefijo completo, por defecto «nmap»
       --nmap-privileged      Añade --privileged a nmap (con setcap, sin root)
+      --nse-scripts-dir <ruta>  Directorio de scripts NSE (detección automática)
       --ipcalc-command <cmd> Ruta a ipcalc, por defecto «ipcalc»
       --gowitness-command <cmd>  Ruta a gowitness, por defecto «gowitness»
-      --gowitness-dir <ruta>     Directorio legacy de capturas a importar; las imágenes se guardan en SQLite
       --help                 Mostrar esta ayuda
 
 Ejemplos:
@@ -49,7 +47,6 @@ const config = {
     ? path.resolve(process.cwd(), process.env.NMAP_ATLAS_DB_PATH.trim())
     : path.resolve(process.cwd(), 'data/nmap-atlas.sqlite'),
   dbDir: embeddedDb && existsSync(embeddedDb) ? embeddedDb : path.resolve(process.cwd(), 'db'),
-  scansDir: path.resolve(process.cwd(), 'scans'),
   distDir: embeddedDist && existsSync(embeddedDist)
     ? embeddedDist
     : path.resolve(process.cwd(), 'dist'),
@@ -61,11 +58,9 @@ const config = {
   nmapPrivileged: ['1', 'true', 'yes'].includes(
     (process.env.NMAP_ATLAS_NMAP_PRIVILEGED ?? '').trim().toLowerCase(),
   ),
+  nseScriptsDir: process.env.NMAP_ATLAS_NSE_SCRIPTS_DIR?.trim() || null,
   ipcalcCommand: process.env.NMAP_ATLAS_IPCALC_COMMAND?.trim() || 'ipcalc',
   gowitnessCommand: process.env.NMAP_ATLAS_GOWITNESS_COMMAND?.trim() || 'gowitness',
-  gowitnessDir: process.env.NMAP_ATLAS_GOWITNESS_DIR?.trim()
-    ? path.resolve(process.cwd(), process.env.NMAP_ATLAS_GOWITNESS_DIR.trim())
-    : null,
 };
 
 const args = process.argv.slice(2);
@@ -89,9 +84,6 @@ for (let index = 0; index < args.length; index += 1) {
     case '--db-path':
       config.dbPath = path.resolve(process.cwd(), next());
       break;
-    case '--scans-dir':
-      config.scansDir = path.resolve(process.cwd(), next());
-      break;
     case '--timeout':
       config.timeoutMs = Number(next());
       break;
@@ -110,33 +102,32 @@ for (let index = 0; index < args.length; index += 1) {
     case '--nmap-privileged':
       config.nmapPrivileged = true;
       break;
+    case '--nse-scripts-dir':
+      config.nseScriptsDir = next().trim() || null;
+      break;
     case '--ipcalc-command':
       config.ipcalcCommand = next().trim() || 'ipcalc';
       break;
     case '--gowitness-command':
       config.gowitnessCommand = next().trim() || 'gowitness';
       break;
-    case '--gowitness-dir':
-      config.gowitnessDir = path.resolve(process.cwd(), next());
-      break;
     default:
       if (arg.startsWith('--port=')) config.port = Number(arg.slice(7));
       else if (arg.startsWith('--host=')) config.host = arg.slice(7);
       else if (arg.startsWith('--db-path=')) config.dbPath = path.resolve(process.cwd(), arg.slice(10));
-      else if (arg.startsWith('--scans-dir=')) config.scansDir = path.resolve(process.cwd(), arg.slice(12));
       else if (arg.startsWith('--timeout=')) config.timeoutMs = Number(arg.slice(10));
       else if (arg.startsWith('--host-timeout=')) config.hostTimeoutMs = Number(arg.slice(15));
       else if (arg.startsWith('--nmap-command=')) {
         config.nmapCommand = arg.slice(15).trim().split(/\s+/).filter(Boolean);
+      }
+      else if (arg.startsWith('--nse-scripts-dir=')) {
+        config.nseScriptsDir = arg.slice(18).trim() || null;
       }
       else if (arg.startsWith('--ipcalc-command=')) {
         config.ipcalcCommand = arg.slice(17).trim() || 'ipcalc';
       }
       else if (arg.startsWith('--gowitness-command=')) {
         config.gowitnessCommand = arg.slice(20).trim() || 'gowitness';
-      }
-      else if (arg.startsWith('--gowitness-dir=')) {
-        config.gowitnessDir = path.resolve(process.cwd(), arg.slice(16));
       }
       else {
         console.error(`Opción desconocida: ${arg}\n${HELP}`);
@@ -166,13 +157,6 @@ if (!config.nmapCommand.length) {
 let db;
 try {
   db = await initializeDatabase(config);
-  if (db.renamedScans) {
-    console.log(`Nombres .xml normalizados: ${db.renamedScans}.`);
-  }
-  const legacy = await importLegacy(db, config);
-  if (legacy.scans || legacy.screenshots) {
-    console.log(`Datos legacy importados: ${legacy.scans} escaneos, ${legacy.screenshots} capturas.`);
-  }
 } catch (error) {
   console.error('[nmap-atlas] No se pudo inicializar la base de datos:', error);
   process.exit(1);

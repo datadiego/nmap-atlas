@@ -15,9 +15,6 @@ x-atlas: &atlas
     NMAP_ATLAS_GOWITNESS_COMMAND: /usr/local/bin/gowitness --chrome-path=/usr/bin/chromium
   volumes:
     - atlas-data:/app/data
-    # Datos legacy del modelo anterior (descomenta si quieres importarlos una vez):
-    # - ./scans:/app/scans:ro
-    # - ./screenshots:/app/screenshots:ro
 
 services:
   nmap-atlas:

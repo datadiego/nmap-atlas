@@ -43,9 +43,7 @@ Por defecto se usa `./data/nmap-atlas.sqlite` (se crea automáticamente). Se pue
 NMAP_ATLAS_DB_PATH=/ruta/otra.sqlite ./nmap-atlas
 ```
 
-En SQLite se guardan los escaneos parseados, `raw_xml`, notas de hosts, ajustes de la interfaz y las capturas como BLOB. Los nombres de escaneo no llevan extensión `.xml`; los nombres antiguos se normalizan al arrancar.
-
-Los artefactos del modelo anterior (carpeta `scans/`, `atlas-screenshots.json` y notas en `localStorage`) se importan una sola vez en el primer arranque. Puedes indicar su ubicación con `--scans-dir` y `--gowitness-dir`.
+En SQLite se guardan los escaneos parseados, `raw_xml`, notas de hosts, ajustes de la interfaz y las capturas como BLOB. Los nombres de escaneo no llevan extensión `.xml`.
 
 ## Opciones de la CLI
 
@@ -54,14 +52,13 @@ Los artefactos del modelo anterior (carpeta `scans/`, `atlas-screenshots.json` y
 | `-p, --port <puerto>` | Puerto HTTP (por defecto `4173`). |
 | `-h, --host <host>` | Host de escucha (por defecto `127.0.0.1`). Usa `0.0.0.0` solo en redes de confianza. |
 | `--db-path <ruta>` | Fichero SQLite (por defecto `./data/nmap-atlas.sqlite`). |
-| `--scans-dir <ruta>` | Directorio legacy de XML a importar en el primer arranque. |
-| `--gowitness-dir <ruta>` | Directorio legacy de capturas; las nuevas imágenes se guardan en SQLite. |
 | `--timeout <ms>` | Tiempo máximo por escaneo (por defecto 30 min). |
 | `--host-timeout <ms>` | Tiempo máximo por host. |
 | `--no-save` | No guardar escaneos (las capturas requieren guardar). |
 | `--nmap-sudo` | Ejecutar `sudo -n nmap`. |
 | `--nmap-command <cmd>` | Prefijo completo del comando de nmap. |
 | `--nmap-privileged` | Añade `--privileged` (necesario con `setcap`). |
+| `--nse-scripts-dir <ruta>` | Directorio de scripts NSE si no se detecta automáticamente. |
 | `--ipcalc-command <cmd>` | Ruta a `ipcalc`. |
 | `--gowitness-command <cmd>` | Ruta a `gowitness`. |
 | `--help` | Mostrar la ayuda. |
