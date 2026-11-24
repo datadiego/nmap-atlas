@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
-import { AlertCircle, Check, FileCode2, FolderOpen, LoaderCircle, Settings2, Terminal, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertCircle, Check, FolderOpen, LoaderCircle, Settings2, Terminal, Trash2, X } from 'lucide-react';
 import type { ApiStatus, NmapScan, SavedScan } from '../types';
 import { useI18n } from '../i18n/I18nProvider';
 import OptionsPanel from './OptionsPanel';
@@ -11,7 +11,7 @@ interface Props {
 
 export default function UploadView({ onLoad }: Props) {
   const { t, formatNumber, formatDateTime } = useI18n();
-  const [mode, setMode] = useState<'file' | 'scan' | 'options'>('scan');
+  const [mode, setMode] = useState<'history' | 'scan' | 'options'>('scan');
   const [apiStatus, setApiStatus] = useState<ApiStatus | null | undefined>(undefined);
   const [scans, setScans] = useState<SavedScan[]>([]);
   const [loadingSaved, setLoadingSaved] = useState<string | null>(null);
@@ -19,9 +19,7 @@ export default function UploadView({ onLoad }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
   const [confirmingDeleteAll, setConfirmingDeleteAll] = useState(false);
-  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -49,32 +47,6 @@ export default function UploadView({ onLoad }: Props) {
     bytes < 1024
       ? `${formatNumber(bytes)} B`
       : `${formatNumber(bytes / 1024, { maximumFractionDigits: 1 })} KB`;
-
-  const readFile = async (file: File) => {
-    setError('');
-    try {
-      const xml = await file.text();
-      const response = await fetch('/api/scans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ xml, filename: file.name }),
-      });
-      const data = (await response.json().catch(() => ({}))) as {
-        name?: string;
-        scan?: NmapScan;
-        warnings?: string[];
-        error?: string;
-      };
-      if (!response.ok || !data.scan) throw new Error(data.error || t('upload.copyError'));
-      await loadSaved();
-      onLoad(data.scan, [
-        t('upload.copySaved', { name: data.name ?? data.scan.filename }),
-        ...(data.warnings ?? []),
-      ]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('upload.readError'));
-    }
-  };
 
   const openSaved = async (name: string) => {
     setError('');
@@ -130,19 +102,6 @@ export default function UploadView({ onLoad }: Props) {
     }
   };
 
-  const handleInput = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) void readFile(file);
-    event.target.value = '';
-  };
-
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setDragging(false);
-    const file = event.dataTransfer.files[0];
-    if (file) void readFile(file);
-  };
-
   return (
     <main className="upload-view">
       <div className="upload-card">
@@ -157,9 +116,9 @@ export default function UploadView({ onLoad }: Props) {
           </button>
           <button
             role="tab"
-            aria-selected={mode === 'file'}
-            className={mode === 'file' ? 'active' : ''}
-            onClick={() => { setMode('file'); setError(''); }}
+            aria-selected={mode === 'history'}
+            className={mode === 'history' ? 'active' : ''}
+            onClick={() => { setMode('history'); setError(''); }}
           >
             <FolderOpen size={16} /> {t('tabs.savedScans')}
           </button>
@@ -173,31 +132,8 @@ export default function UploadView({ onLoad }: Props) {
           </button>
         </div>
 
-        {mode === 'file' ? (
+        {mode === 'history' ? (
           <div className="upload-panel">
-            <div
-              className={`dropzone ${dragging ? 'dragging' : ''}`}
-              onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
-              onClick={() => inputRef.current?.click()}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(event) => { if (event.key === 'Enter') inputRef.current?.click(); }}
-            >
-              <div className="drop-icon"><FileCode2 size={22} /></div>
-              <h3>{t('upload.dropTitle')}</h3>
-              <p>{t('upload.dropSubtitle')}</p>
-              <span className="drop-hint">{t('upload.dropFormats')}</span>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".xml,text/xml,application/xml"
-                hidden
-                onChange={handleInput}
-              />
-            </div>
-
             {scans.length > 0 && (
               <div className="saved-scans">
                 <div className="saved-scans-head">

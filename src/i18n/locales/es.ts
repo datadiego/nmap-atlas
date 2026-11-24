@@ -19,17 +19,11 @@ export const es = {
   'app.renameExists': 'Ya existe un escaneo con ese nombre.',
   'common.scrollTop': 'Volver arriba',
 
-  'tabs.savedScans': 'Escaneos realizados',
+  'tabs.savedScans': 'Historial',
   'tabs.scan': 'Escanear',
   'tabs.options': 'Opciones',
 
-  'upload.dropTitle': 'Arrastra tu XML aquí',
-  'upload.dropSubtitle': 'o haz clic para buscarlo en tu equipo',
-  'upload.dropFormats': '.xml · se admite la salida de nmap -oX / -oA',
   'upload.savedScans': 'Escaneos guardados ({count})',
-  'upload.readError': 'No se pudo leer el archivo.',
-  'upload.copyError': 'No se pudo guardar el escaneo en la base de datos.',
-  'upload.copySaved': 'Escaneo guardado en la base de datos: {name}. El archivo original no se ha modificado.',
   'upload.openErrorStatus': 'Error {status} al abrir el escaneo.',
   'upload.openError': 'No se pudo abrir el escaneo guardado.',
   'upload.deleteTitle': 'Borrar escaneo',
@@ -279,6 +273,7 @@ export const es = {
   'ports.empty': 'Este host no tiene puertos enumerados en el XML.',
   'ports.unknown': 'desconocido',
   'ports.extra': '+ {count} puertos {state}',
+  'ports.scripts': 'Scripts NSE ({count})',
 
   'host.details': 'Detalles del host',
   'host.notes': 'Notas',

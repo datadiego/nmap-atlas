@@ -21,17 +21,11 @@ export const en: Translation = {
   'app.renameExists': 'A scan with that name already exists.',
   'common.scrollTop': 'Back to top',
 
-  'tabs.savedScans': 'Saved scans',
+  'tabs.savedScans': 'History',
   'tabs.scan': 'Scan',
   'tabs.options': 'Options',
 
-  'upload.dropTitle': 'Drop your XML here',
-  'upload.dropSubtitle': 'or click to browse your computer',
-  'upload.dropFormats': '.xml · nmap -oX / -oA output supported',
   'upload.savedScans': 'Saved scans ({count})',
-  'upload.readError': 'Could not read the file.',
-  'upload.copyError': 'Could not save the scan to the database.',
-  'upload.copySaved': 'Scan saved to the database: {name}. The original file was not modified.',
   'upload.openErrorStatus': 'Error {status} while opening the scan.',
   'upload.openError': 'Could not open the saved scan.',
   'upload.deleteTitle': 'Delete scan',
@@ -281,6 +275,7 @@ export const en: Translation = {
   'ports.empty': 'This host has no ports listed in the XML.',
   'ports.unknown': 'unknown',
   'ports.extra': '+ {count} {state} ports',
+  'ports.scripts': 'NSE scripts ({count})',
 
   'host.details': 'Host details',
   'host.notes': 'Notes',

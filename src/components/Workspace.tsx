@@ -496,6 +496,7 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
                   <PortsCard
                     hosts={cardHosts}
                     query={query}
+                    openAll={showAllPorts}
                     onClose={closeCard}
                     onNotesChange={onNotesChange}
                     onNotesCommit={onNotesCommit}

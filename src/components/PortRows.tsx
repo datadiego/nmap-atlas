@@ -1,5 +1,6 @@
 import { stateColor } from '../graph/model';
 import { useI18n } from '../i18n/I18nProvider';
+import PortScripts from './PortScripts';
 import { stateKeys } from './portState';
 import type { NmapHost, NmapPort } from '../types';
 
@@ -13,6 +14,8 @@ export function portText(port: NmapPort): string {
     service?.product,
     service?.version,
     ...(service?.cpe ?? []),
+    ...port.scripts.flatMap((script) => [script.id, script.output]),
+    ...(service?.scripts ?? []).flatMap((script) => [script.id, script.output]),
   ]
     .filter(Boolean)
     .join(' ')
@@ -22,10 +25,11 @@ export function portText(port: NmapPort): string {
 interface Props {
   host: NmapHost;
   query?: string;
+  scriptsOpen?: boolean;
 }
 
 /** Filas de puertos y puertos extra, reutilizadas en grafo y modal de capturas. */
-export default function PortRows({ host, query = '' }: Props) {
+export default function PortRows({ host, query = '', scriptsOpen = false }: Props) {
   const { t, formatNumber } = useI18n();
   const q = query.trim().toLowerCase();
 
@@ -59,6 +63,7 @@ export default function PortRows({ host, query = '' }: Props) {
                   CPE
                 </a>
               )}
+              <PortScripts port={port} open={scriptsOpen} />
             </div>
           );
         })}

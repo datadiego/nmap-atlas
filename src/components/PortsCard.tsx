@@ -8,14 +8,23 @@ import type { NmapHost } from '../types';
 interface Props {
   hosts: NmapHost[];
   query: string;
+  openAll?: boolean;
   onClose: () => void;
   onNotesChange: (hostKey: string, notes: string) => void;
   onNotesCommit: (hostKey: string) => void;
 }
 
-export default function PortsCard({ hosts, query, onClose, onNotesChange, onNotesCommit }: Props) {
+export default function PortsCard({
+  hosts,
+  query,
+  openAll = false,
+  onClose,
+  onNotesChange,
+  onNotesCommit,
+}: Props) {
   const { t, formatNumber } = useI18n();
   const q = query.trim().toLowerCase();
+  const detailsOpen = openAll || hosts.length === 1;
   const total = hosts.reduce((sum, host) => sum + host.ports.length, 0);
   const open = hosts.reduce((sum, host) => sum + host.ports.filter((port) => port.state === 'open').length, 0);
   const matches = q ? hosts.reduce((sum, host) => sum + host.ports.filter((p) => portText(p).includes(q)).length, 0) : total;
@@ -52,8 +61,8 @@ export default function PortsCard({ hosts, query, onClose, onNotesChange, onNote
             {hosts.length > 1 && <div className="ports-card-hostname">{hostLabel(host, t)}</div>}
             <HostDetails
               host={host}
-              open={hosts.length === 1}
-              portsContent={<PortRows host={host} query={query} />}
+              open={detailsOpen}
+              portsContent={<PortRows host={host} query={query} scriptsOpen={detailsOpen} />}
               onNotesChange={(notes) => onNotesChange(host.key, notes)}
               onNotesCommit={() => onNotesCommit(host.key)}
             />

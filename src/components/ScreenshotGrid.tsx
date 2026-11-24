@@ -232,7 +232,7 @@ export default function ScreenshotGrid({
                 open
                 openSections
                 highlightPort={selectedCapture.port}
-                portsContent={<PortRows host={selectedCapture.nmapHost} />}
+                portsContent={<PortRows host={selectedCapture.nmapHost} scriptsOpen />}
                 onNotesChange={(notes) => onNotesChange(selectedCapture.hostKey, notes)}
                 onNotesCommit={() => onNotesCommit(selectedCapture.hostKey)}
               />
