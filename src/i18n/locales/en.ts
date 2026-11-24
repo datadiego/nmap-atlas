@@ -2,6 +2,8 @@ import type { Translation } from './es';
 
 /** TypeScript exige exactamente las mismas claves que en es.ts. */
 export const en: Translation = {
+  'app.title': 'Nmap Atlas',
+  'app.scanningTitle': 'Scanning...',
   'app.newScan': 'New scan',
   'app.newScanAria': 'Nmap Atlas: new scan',
   'app.unnamedXml': 'Untitled scan',
@@ -257,7 +259,9 @@ export const en: Translation = {
 
   'captures.empty': 'No screenshots yet. Enable “Capture HTTP screens with gowitness” when scanning.',
   'captures.open': 'Open screenshot at full size',
-  'captures.openHost': 'View this host details in the list',
+  'captures.openHost': 'View details for this host',
+  'captures.closeDetails': 'Close details',
+  'captures.detailsTitle': 'Details for {host}:{port}',
 
   'list.empty': 'No hosts match the search or the filter.',
   'list.expandHost': 'Show ports and details for {name}',

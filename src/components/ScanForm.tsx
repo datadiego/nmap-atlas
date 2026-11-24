@@ -437,6 +437,11 @@ export default function ScanForm({ status, onLoad }: Props) {
   const [options, setOptions] = useState<Set<string>>(() => new Set(initialOptions.bases));
   const [optionArgs, setOptionArgs] = useState<Record<string, string>>(() => initialOptions.args);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!busy) return;
+    document.title = t('app.scanningTitle');
+    return () => { document.title = t('app.title'); };
+  }, [busy, t]);
   const [error, setError] = useState('');
   const [showIpcCalc, setShowIpcCalc] = useState(false);
   const [timeoutMs, setTimeoutMs] = useState(() =>

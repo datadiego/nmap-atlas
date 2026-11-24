@@ -11,6 +11,8 @@ interface Props {
   openSections?: boolean;
   onNotesChange?: (notes: string) => void;
   onNotesCommit?: () => void;
+  /** Resalta la entrada HTTP de este puerto, por ejemplo al abrirla desde una captura. */
+  highlightPort?: string;
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -32,6 +34,7 @@ export default function HostDetails({
   openSections = false,
   onNotesChange,
   onNotesCommit,
+  highlightPort,
 }: Props) {
   const { t, formatNumber } = useI18n();
   const { forHost } = useScreenshots();
@@ -110,7 +113,11 @@ export default function HostDetails({
           <Row label={t('host.http')}>
             <div className="host-screenshots">
               {httpItems.map(({ port, url, shot }) => (
-                <div className="host-http-entry" key={`${port}:${url || shot?.file}`}>
+                <div
+                  className={`host-http-entry${highlightPort === port ? ' match' : ''}`}
+                  key={`${port}:${url || shot?.file}`}
+                  data-http-port={port}
+                >
                   {shot ? (
                     <div className="host-screenshot">
                       <a

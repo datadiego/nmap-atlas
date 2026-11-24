@@ -11,13 +11,16 @@ export async function get(c) {
     getGowitnessVersion(config),
   ]);
   const command = config.nmapCommand ?? ['nmap'];
+  const privileged = Boolean(config.nmapPrivileged)
+    || command.includes('--privileged')
+    || command.length > 1;
 
   return c.json({
     ok: true,
     nmapAvailable: Boolean(nmapVersion),
     nmapVersion,
     nmapCommand: command.join(' '),
-    privileged: command.length > 1,
+    privileged,
     dbPath: config.dbPath,
     scansDir: config.scansDir ?? '',
     saving: config.save,

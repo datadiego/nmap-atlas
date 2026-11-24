@@ -961,6 +961,54 @@ code, pre { font-family: 'DM Mono', ui-monospace, SFMono-Regular, monospace; }
 .capture-card { cursor: pointer; }
 .capture-card:hover { border-color: var(--accent-dark); }
 .capture-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.capture-modal-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(4px);
+}
+.capture-modal {
+  width: min(760px, 100%);
+  max-height: min(82vh, 760px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border-hover);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  animation: capture-modal-in .16s ease-out;
+}
+@keyframes capture-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.capture-modal-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.capture-modal-title { min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+.capture-modal-title strong {
+  min-width: 0; font-size: 13px; color: var(--text-strong);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.capture-modal-port { flex: 0 0 auto; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); }
+.capture-modal-close {
+  flex: 0 0 auto; width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-2); color: var(--muted); cursor: pointer;
+}
+.capture-modal-close:hover { color: var(--text-strong); border-color: var(--accent); background: var(--surface-3); }
+.capture-modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.capture-modal-body { min-height: 0; overflow-y: auto; padding: 14px 15px 18px; }
+.capture-modal-body::-webkit-scrollbar { width: 9px; }
+.capture-modal-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
+.capture-modal .host-details {
+  margin: 0; border: none; background: transparent;
+}
+.capture-modal .host-details > summary { display: none; }
 
 .scroll-to-top {
   position: fixed; right: 22px; bottom: 22px; z-index: 20;
@@ -1144,6 +1192,11 @@ code, pre { font-family: 'DM Mono', ui-monospace, SFMono-Regular, monospace; }
 .host-detail-text { font-size: 10px; color: var(--muted); }
 .host-screenshots { display: flex; flex-direction: column; gap: 6px; }
 .host-http-entry { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.host-http-entry.match {
+  padding: 5px; border-radius: 7px;
+  background: rgba(var(--accent-rgb), .08);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 .host-http-link {
   display: inline-flex; align-items: center; gap: 5px;
   width: fit-content; max-width: 100%;

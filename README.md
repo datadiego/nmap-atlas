@@ -20,6 +20,20 @@ npm run binary            # genera el ejecutable ./nmap-atlas
 
 También puedes ejecutar el servidor sin recompilar con `npm run serve` (o `npm run cli`).
 
+### Docker
+
+```sh
+docker compose up --build      # http://127.0.0.1:4173
+```
+
+La imagen incluye `nmap`, `ipcalc`, `gowitness` v3 y Chromium. La base de datos se guarda en el volumen `atlas-data`. El puerto se cambia con `PORT=8080 docker compose up`; la IP de escucha del host con `HOST_IP=0.0.0.0`.
+
+En Linux, para escanear `127.0.0.1` o hacer descubrimiento ARP en la LAN, usa el perfil con red del host (para el servicio por defecto antes):
+
+```sh
+docker compose --profile host up nmap-atlas-host   # http://127.0.0.1:4173
+```
+
 ### Base de datos
 
 Por defecto se usa `./data/nmap-atlas.sqlite` (se crea automáticamente). Se puede cambiar con:

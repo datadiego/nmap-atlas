@@ -117,6 +117,9 @@ export async function captureHttpScreenshots(xml, config, db, scanId) {
         '-f', xmlPath,
         '--screenshot-path', dir,
         '--open-only',
+        // Con el retardo por defecto (3 s), gowitness v3 + Chromium 156 deja el
+        // screenshot esperando hasta el timeout en este contenedor.
+        '--delay', '0',
         // `--service-contains http` está invertido en v3; usamos la lista
         // explícita de servicios HTTP documentada por gowitness.
         ...['http', 'https', 'http-alt', 'https-alt', 'http-mgmt', 'http-proxy', 'www', 'www-http']

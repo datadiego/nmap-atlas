@@ -225,22 +225,6 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
     [viewMode, model, onlyWithPorts, onlyWithScreenshots, screenshotKeys, closeCard, fitView],
   );
 
-  // Desde una captura saltamos a la lista con el subred y el host abiertos.
-  // Limpiamos la búsqueda porque la captura puede coincidir por URL/título.
-  const openHostInList = useCallback(
-    (hostKey: string) => {
-      changeLayout('list');
-      setQuery('');
-      const subnet = subnetGroups.find((group) =>
-        group.hosts.some((host) => host.key === hostKey),
-      );
-      if (subnet) setExpandedSubnets((current) => new Set(current).add(subnet.id));
-      setExpandedHosts((current) => new Set(current).add(hostKey));
-      setScrollTo(hostKey);
-    },
-    [changeLayout, subnetGroups],
-  );
-
   const changeOnlyWithPorts = useCallback(
     (value: boolean) => {
       setOnlyWithPorts(value);
@@ -447,7 +431,8 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
             captures={captureView}
             scrollTo={scrollTo}
             onScrolled={clearScroll}
-            onOpenHost={openHostInList}
+            onNotesChange={onNotesChange}
+            onNotesCommit={onNotesCommit}
           />
         ) : (
           <div className="graph-area">

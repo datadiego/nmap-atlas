@@ -1,5 +1,7 @@
 /** Español: fuente de verdad. Los demás idiomas deben tener exactamente estas claves. */
 export const es = {
+  'app.title': 'Nmap Atlas',
+  'app.scanningTitle': 'Escaneando...',
   'app.newScan': 'Nuevo escaneo',
   'app.newScanAria': 'Nmap Atlas: nuevo escaneo',
   'app.unnamedXml': 'Escaneo sin nombre',
@@ -255,7 +257,9 @@ export const es = {
 
   'captures.empty': 'No hay capturas. Activa «Capturar pantallas HTTP con gowitness» al escanear.',
   'captures.open': 'Abrir captura a tamaño completo',
-  'captures.openHost': 'Ver los detalles de este host en la lista',
+  'captures.openHost': 'Ver los detalles de este host',
+  'captures.closeDetails': 'Cerrar detalles',
+  'captures.detailsTitle': 'Detalles de {host}:{port}',
 
   'list.empty': 'No hay hosts que coincidan con la búsqueda o el filtro.',
   'list.expandHost': 'Mostrar puertos y detalles de {name}',
