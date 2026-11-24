@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { getByName, saveParsed } from '../db/repositories/scans.mjs';
 import { updateProgress } from '../db/repositories/jobs.mjs';
 import { captureHttpScreenshots } from './gowitness.mjs';
@@ -71,6 +74,7 @@ const ALLOWED_OPTION_PATTERNS = [
   /^-b(?:[A-Za-z0-9._-]+(?::[A-Za-z0-9._-]+)?@)?[A-Za-z0-9._-]+(?::\d{1,5})?$/,
   /^--scanflags=[A-Z]{1,64}$/,
   /^-P[SUA][A-Za-z0-9,.-]{1,80}$/,
+  /^--script=[A-Za-z0-9][A-Za-z0-9._-]*(?:,[A-Za-z0-9][A-Za-z0-9._-]*)*$/,
 ];
 
 const ALLOWED_TIMINGS = new Set(['-T0', '-T1', '-T2', '-T3', '-T4', '-T5']);
@@ -408,10 +412,16 @@ export function cancelScan(rawId, activeScans) {
 export async function runNmap(payload, config, db, activeScans = new Map()) {
   const { args, target } = buildArgs(payload, config);
   const command = nmapInvocation(config);
+  // La salida "normal" (-oN) se captura en un temporal: nunca sustituye al XML
+  // en SQLite, que sigue siendo la única fuente de verdad.
+  const normalDir = await mkdtemp(join(tmpdir(), 'nmap-atlas-normal-'));
+  const normalPath = join(normalDir, 'nmap.nmap');
+  let normalText = '';
+  try {
   // Nmap solo emite <taskprogress> en el XML si se pide explícitamente.
   // Es la única forma fiable de saber cuántas IPs lleva procesadas, incluso
   // cuando no hay resultados (hosts caídos o sin respuesta).
-  const nmapArgs = [...args];
+  const nmapArgs = [...args, '-oN', normalPath];
   if (!nmapArgs.some((arg) => arg === '--stats-every' || arg.startsWith('--stats-every='))) {
     const outputIndex = nmapArgs.indexOf('-oX');
     nmapArgs.splice(outputIndex === -1 ? nmapArgs.length : outputIndex, 0, '--stats-every=1s');
@@ -590,6 +600,12 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
     throw new Error(`nmap no devolvió XML. ${detail}${hint}`);
   }
 
+  try {
+    normalText = await readFile(normalPath, 'utf8');
+  } catch {
+    // Un escaneo cancelado antes del primer host puede no escribir Salida normal.
+  }
+
   const displayName = `nmap ${target}`;
   let parsed;
   try {
@@ -612,14 +628,21 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
     };
   }
 
+  if (result.code !== 0 && normalText) {
+    parsed.warnings = [...(parsed.warnings ?? []), 'Salida normal incompleta.'];
+  }
+
+  // El flag interno -oN no se muestra: el usuario ve solo el XML y sus flags.
+  const displayCommand = [...command, ...args].join(' ');
   let savedAs = null;
   if (config.save) {
     savedAs = saveParsed(db, {
       name: scanName(target),
       xml: result.stdout,
+      rawText: normalText,
       parsed,
       source: 'nmap',
-      command: [...command, ...args].join(' '),
+      command: displayCommand,
       durationMs: Date.now() - started,
       exitCode: result.code,
       stderr: result.stderr.trim().slice(-1000),
@@ -646,8 +669,9 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
   }
   return {
     xml: result.stdout,
+    rawText: normalText,
     scan: parsed,
-    command: [...command, ...args].join(' '),
+    command: displayCommand,
     durationMs: Date.now() - started,
     exitCode: result.code,
     stderr: result.stderr.trim().slice(-1000),
@@ -655,4 +679,7 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
     gowitness,
     timeoutMs,
   };
+  } finally {
+    await rm(normalDir, { recursive: true, force: true });
+  }
 }

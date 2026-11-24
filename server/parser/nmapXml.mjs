@@ -16,6 +16,7 @@ const parser = new XMLParser({
   isArray: (name) => [
     'host', 'port', 'address', 'hostname', 'script', 'cpe', 'extraports',
     'extrareasons', 'osmatch', 'osclass', 'scaninfo', 'atlas-note',
+    'trace', 'hop',
   ].includes(name),
 });
 
@@ -174,6 +175,19 @@ function parseOs(osEl) {
   };
 }
 
+function parseTraces(el) {
+  return asArray(el.trace).map((trace) => ({
+    port: attr(trace, 'port'),
+    proto: attr(trace, 'proto'),
+    hops: asArray(trace.hop).map((hop) => ({
+      ttl: num(attr(hop, 'ttl')),
+      ipaddr: attr(hop, 'ipaddr'),
+      rtt: attr(hop, 'rtt'),
+      host: attr(hop, 'host'),
+    })),
+  }));
+}
+
 function parseHost(el, index) {
   const noteEl = asArray(el['atlas-note'])[0];
   const times = asArray(el.times)[0];
@@ -207,6 +221,7 @@ function parseHost(el, index) {
           to: attr(times, 'to'),
         }
       : null,
+    traces: parseTraces(el),
     scripts: parseScripts(asArray(el.hostscript)[0]),
     notes: textOf(noteEl),
   };

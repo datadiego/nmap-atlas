@@ -7,6 +7,7 @@ import * as settings from './controllers/settings.mjs';
 import * as screenshots from './controllers/screenshots.mjs';
 import * as jobs from './controllers/jobs.mjs';
 import * as ipcalc from './controllers/ipcalc.mjs';
+import * as nse from './controllers/nse.mjs';
 
 /** Aplicación HTTP (capa View/Controller). Las rutas son delgadas: delegan en repositorios/servicios. */
 export function createApp({ db, config, activeScans = new Map() }) {
@@ -26,6 +27,7 @@ export function createApp({ db, config, activeScans = new Map() }) {
   });
 
   app.get('/api/status', status.get);
+  app.get('/api/nmap/scripts', nse.list);
 
   app.get('/api/settings', settings.get);
   app.put('/api/settings', settings.update);
@@ -36,6 +38,7 @@ export function createApp({ db, config, activeScans = new Map() }) {
   app.post('/api/scans', scans.upload);
   app.delete('/api/scans', scans.deleteAll);
   app.get('/api/scans/:name/json', scans.getJson);
+  app.get('/api/scans/:name/raw', scans.getRaw);
   app.patch('/api/scans/:name', scans.rename);
   app.delete('/api/scans/:name', scans.remove);
   app.put('/api/hosts/:name/:index/notes', scans.note);

@@ -80,6 +80,31 @@ function insertHost(db, scanId, ordinal, host) {
     hostname.run(hostId, index, entry.name ?? '', entry.type ?? '');
   });
 
+  const traceStmt = db.prepare(
+    'INSERT INTO traceroutes (host_id, ordinal, port, proto) VALUES (?, ?, ?, ?)',
+  );
+  const hopStmt = db.prepare(
+    'INSERT INTO trace_hops (trace_id, ordinal, ttl, ipaddr, rtt, host) VALUES (?, ?, ?, ?, ?, ?)',
+  );
+  (host.traces ?? []).forEach((trace, traceIndex) => {
+    const traceResult = traceStmt.run(
+      hostId,
+      traceIndex,
+      trace.port ?? '',
+      trace.proto ?? '',
+    );
+    (trace.hops ?? []).forEach((hop, hopIndex) => {
+      hopStmt.run(
+        traceResult.lastInsertRowid,
+        hopIndex,
+        Number(hop.ttl ?? 0) || 0,
+        hop.ipaddr ?? '',
+        hop.rtt ?? '',
+        hop.host ?? '',
+      );
+    });
+  });
+
   const portStmt = db.prepare(
     `INSERT INTO ports
        (host_id, ordinal, protocol, port_id, state, reason, reason_ttl,
@@ -170,6 +195,7 @@ export function saveParsed(db, options) {
   const {
     name,
     xml,
+    rawText = '',
     parsed,
     source = 'upload',
     command = '',
@@ -198,8 +224,8 @@ export function saveParsed(db, options) {
       `INSERT INTO scans
          (name, source, scanner, args, command, nmap_version, xml_output_version,
           start_raw, startstr, started_at, duration_ms, exit_code, stderr,
-          warnings_json, raw_xml, raw_size, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          warnings_json, raw_xml, raw_text, raw_size, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       finalName,
       source,
       parsed.scanner ?? 'nmap',
@@ -215,6 +241,7 @@ export function saveParsed(db, options) {
       stderr ?? '',
       JSON.stringify(parsed.warnings ?? []),
       cleanXml,
+      typeof rawText === 'string' ? rawText : '',
       Buffer.byteLength(cleanXml, 'utf8'),
       now,
       now,
@@ -275,6 +302,12 @@ export function count(db) {
 
 export function getByName(db, name) {
   return db.get('SELECT * FROM scans WHERE name = ?', requireName(name));
+}
+
+export function getRawText(db, name) {
+  const row = db.get('SELECT name, raw_text FROM scans WHERE name = ?', requireName(name));
+  if (!row) throw new ValidationError('El escaneo indicado no existe.');
+  return { name: row.name, text: row.raw_text ?? '' };
 }
 
 export function rename(db, from, to) {
@@ -394,6 +427,18 @@ export function buildScan(db, scan) {
     ownerId,
   ).map((row) => ({ id: row.script_id, output: row.output }));
 
+  const tracesFor = (hostId) => db.all(
+    'SELECT * FROM traceroutes WHERE host_id = ? ORDER BY ordinal',
+    hostId,
+  ).map((trace) => ({
+    port: trace.port,
+    proto: trace.proto,
+    hops: db.all(
+      'SELECT ttl, ipaddr, rtt, host FROM trace_hops WHERE trace_id = ? ORDER BY ordinal',
+      trace.id,
+    ).map((hop) => ({ ...hop, ttl: Number(hop.ttl ?? 0) })),
+  }));
+
   const hosts = db.all(
     'SELECT * FROM hosts WHERE scan_id = ? ORDER BY ordinal',
     scan.id,
@@ -494,6 +539,7 @@ export function buildScan(db, scan) {
       times: host.srtt || host.rttvar || host.to_rtt
         ? { srtt: host.srtt, rttvar: host.rttvar, to: host.to_rtt }
         : null,
+      traces: tracesFor(host.id),
       scripts: scriptsFor('host_id', host.id),
       notes: host.notes ?? '',
     };

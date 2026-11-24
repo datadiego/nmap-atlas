@@ -46,3 +46,9 @@ export async function migrateNotes(c) {
 export function getJson(c) {
   return c.json(scans.getScanJson(c.var.db, c.req.param('name')));
 }
+
+export function getRaw(c) {
+  const { text } = scans.getRawText(c.var.db, c.req.param('name'));
+  c.header('Content-Type', 'text/plain; charset=utf-8');
+  return c.body(text);
+}
