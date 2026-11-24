@@ -1,0 +1,39 @@
+x-atlas: &atlas
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: nmap-atlas:local
+  init: true
+  restart: unless-stopped
+  cap_add:
+    - NET_ADMIN
+    - NET_RAW
+  shm_size: 512mb
+  environment:
+    NMAP_ATLAS_DB_PATH: /app/data/nmap-atlas.sqlite
+    NMAP_ATLAS_NMAP_PRIVILEGED: "1"
+    NMAP_ATLAS_GOWITNESS_COMMAND: /usr/local/bin/gowitness --chrome-path=/usr/bin/chromium
+  volumes:
+    - atlas-data:/app/data
+    # Datos legacy del modelo anterior (descomenta si quieres importarlos una vez):
+    # - ./scans:/app/scans:ro
+    # - ./screenshots:/app/screenshots:ro
+
+services:
+  nmap-atlas:
+    <<: *atlas
+    command: ["node", "bin/nmap-atlas.mjs", "--host", "0.0.0.0", "--port", "4173"]
+    ports:
+      - "${HOST_IP:-127.0.0.1}:${PORT:-4173}:4173"
+
+  # Linux: mismo contenedor con la red del host. Útil para escanear 127.0.0.1
+  # y para que gowitness vea las mismas IPs que ve tu máquina.
+  # Actívalo con: docker compose --profile host up nmap-atlas-host
+  nmap-atlas-host:
+    <<: *atlas
+    profiles: [host]
+    network_mode: host
+    command: ["node", "bin/nmap-atlas.mjs", "--host", "${HOST_BIND:-127.0.0.1}", "--port", "4173"]
+
+volumes:
+  atlas-data:
