@@ -3,6 +3,7 @@ import {
   Camera,
   ChevronsDownUp,
   ChevronsUpDown,
+  FileText,
   GitBranch,
   LayoutGrid,
   List,
@@ -62,7 +63,8 @@ export default function Toolbar({
   const { t, formatNumber } = useI18n();
   const isList = layoutMode === 'list';
   const isCaptures = layoutMode === 'screenshots';
-  const isPlainView = isList || isCaptures;
+  const isRaw = layoutMode === 'raw';
+  const isPlainView = isList || isCaptures || isRaw;
 
   return (
     <div className="toolbar">
@@ -73,42 +75,52 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-actions">
-        <div className="search-box">
-          <Search size={16} />
-          <input
-            ref={searchRef}
-            value={query}
-            onChange={(event) => onQuery(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') onFocusMatch(); }}
-            placeholder={t('toolbar.searchPlaceholder')}
-            aria-label={t('toolbar.searchAria')}
-          />
-          {query && <span className="match-count">{matchCount}</span>}
-          {query && (
-            <button className="clear-search" onClick={() => onQuery('')} title={t('toolbar.clearSearch')}>
-              <X size={14} />
-            </button>
-          )}
-        </div>
+        {!isRaw && (
+          <>
+            <div className="search-box">
+              <Search size={16} />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(event) => onQuery(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') onFocusMatch(); }}
+                placeholder={t('toolbar.searchPlaceholder')}
+                aria-label={t('toolbar.searchAria')}
+              />
+              {query && <span className="match-count">{matchCount}</span>}
+              {query && (
+                <button className="clear-search" onClick={() => onQuery('')} title={t('toolbar.clearSearch')}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
-        <button
-          className={`chip-toggle ${onlyWithPorts ? 'active' : ''}`}
-          onClick={() => onOnlyWithPorts(!onlyWithPorts)}
-          title={t('toolbar.onlyOpenTitle')}
-        >
-          {t('toolbar.onlyOpen')}
-        </button>
-        <button
-          className={`chip-toggle chip-screenshots ${onlyWithScreenshots ? 'active' : ''}`}
-          onClick={() => onOnlyWithScreenshots(!onlyWithScreenshots)}
-          title={t('toolbar.onlyScreenshotsTitle')}
-          aria-pressed={onlyWithScreenshots}
-        >
-          <Camera size={13} /> <span>{t('toolbar.onlyScreenshots')}</span>
-        </button>
-        <div className="toolbar-divider" />
+            <button
+              className={`chip-toggle ${onlyWithPorts ? 'active' : ''}`}
+              onClick={() => onOnlyWithPorts(!onlyWithPorts)}
+              title={t('toolbar.onlyOpenTitle')}
+            >
+              {t('toolbar.onlyOpen')}
+            </button>
+            <button
+              className={`chip-toggle chip-screenshots ${onlyWithScreenshots ? 'active' : ''}`}
+              onClick={() => onOnlyWithScreenshots(!onlyWithScreenshots)}
+              title={t('toolbar.onlyScreenshotsTitle')}
+              aria-pressed={onlyWithScreenshots}
+            >
+              <Camera size={13} /> <span>{t('toolbar.onlyScreenshots')}</span>
+            </button>
+            <div className="toolbar-divider" />
+          </>
+        )}
 
         <div className="layout-switch" role="group" aria-label={t('toolbar.viewMode')}>
+          <button
+            className={isRaw ? 'active' : ''}
+            onClick={() => onLayoutMode('raw')}
+            title={t('toolbar.rawTitle')}
+            aria-pressed={isRaw}
+          ><FileText size={14} /><span>{t('toolbar.raw')}</span></button>
           <button
             className={layoutMode === 'grid' ? 'active' : ''}
             onClick={() => onLayoutMode('grid')}
@@ -135,7 +147,7 @@ export default function Toolbar({
           ><Camera size={14} /><span>{t('toolbar.captures')}</span></button>
         </div>
 
-        {!isCaptures && (
+        {!isCaptures && !isRaw && (
           <>
             <button
               className="icon-button"

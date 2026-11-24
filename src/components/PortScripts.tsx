@@ -1,4 +1,6 @@
+import { useContext } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
+import { ScriptsOpenContext } from '../scriptsContext';
 import type { NmapPort } from '../types';
 
 interface Props {
@@ -9,11 +11,12 @@ interface Props {
 /** Resultados NSE de un puerto, incluidos los scripts del servicio. */
 export default function PortScripts({ port, open = false }: Props) {
   const { t } = useI18n();
+  const shared = useContext(ScriptsOpenContext);
   const scripts = [...(port.scripts ?? []), ...(port.service?.scripts ?? [])];
   if (scripts.length === 0) return null;
 
   return (
-    <details className="port-scripts" open={open}>
+    <details className="port-scripts" open={shared?.open ?? open}>
       <summary>{t('ports.scripts', { count: scripts.length })}</summary>
       <div className="port-scripts-body">
         {scripts.map((script, index) => (

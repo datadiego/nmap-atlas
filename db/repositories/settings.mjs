@@ -1,7 +1,7 @@
 import { ValidationError } from '../../server/errors.mjs';
 
 const LOCALES = new Set(['es', 'en']);
-const VIEWS = new Set(['grid', 'hierarchy', 'list', 'screenshots']);
+const VIEWS = new Set(['grid', 'hierarchy', 'list', 'screenshots', 'raw']);
 
 function parseJson(value, fallback) {
   try {

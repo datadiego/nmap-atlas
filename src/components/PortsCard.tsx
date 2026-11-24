@@ -62,6 +62,7 @@ export default function PortsCard({
             <HostDetails
               host={host}
               open={detailsOpen}
+              openSections={detailsOpen}
               portsContent={<PortRows host={host} query={query} scriptsOpen={detailsOpen} />}
               onNotesChange={(notes) => onNotesChange(host.key, notes)}
               onNotesCommit={() => onNotesCommit(host.key)}

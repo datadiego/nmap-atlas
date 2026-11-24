@@ -32,6 +32,7 @@ import EntityNodeView from './EntityNodeView';
 import HostList, { buildHostSearchIndex, filterHostList } from './HostList';
 import ScreenshotGrid, { buildCaptures, filterCaptures } from './ScreenshotGrid';
 import PortsCard from './PortsCard';
+import RawView from './RawView';
 import Toolbar from './Toolbar';
 
 const nodeTypes: NodeTypes = { entity: EntityNodeView };
@@ -209,7 +210,7 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
       saveViewMode(mode);
       closeCard();
 
-      if (mode === 'list' || mode === 'screenshots') {
+      if (mode === 'list' || mode === 'screenshots' || mode === 'raw') {
         // Al volver al grafo se recalcula el layout con la opción elegida.
         setBaseNodes([]);
         return;
@@ -434,6 +435,8 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
             onNotesChange={onNotesChange}
             onNotesCommit={onNotesCommit}
           />
+        ) : viewMode === 'raw' ? (
+          <RawView name={scan.filename} />
         ) : (
           <div className="graph-area">
             <ReactFlow

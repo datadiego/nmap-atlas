@@ -1178,6 +1178,45 @@ code, pre { font-family: 'DM Mono', ui-monospace, SFMono-Regular, monospace; }
   background: var(--surface-2); color: var(--text); font-size: 10px; word-break: break-all;
 }
 .host-detail-text { font-size: 10px; color: var(--muted); }
+.host-ports-head { display: flex; justify-content: flex-end; }
+.host-scripts-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 6px; border: 1px solid var(--border-soft); border-radius: 5px;
+  background: var(--surface-2); color: var(--accent);
+  font-size: 9.5px; cursor: pointer;
+}
+.host-scripts-toggle:hover { border-color: var(--accent); }
+.host-trace {
+  min-width: 0; border: 1px solid var(--border-soft); border-radius: 7px;
+  background: var(--surface-2);
+}
+.host-trace > summary {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 6px; cursor: pointer; list-style: none;
+  font-size: 9.5px; color: var(--accent);
+}
+.host-trace > summary::-webkit-details-marker { display: none; }
+.host-trace > summary::before { content: '▸'; color: var(--dim); font-size: 9px; }
+.host-trace[open] > summary::before { content: '▾'; }
+.host-trace > summary span { color: var(--muted); }
+.host-trace-hops {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 4px 6px 7px; border-top: 1px solid var(--border-soft);
+}
+.host-trace-hop {
+  display: grid; grid-template-columns: 28px 68px minmax(0, 1fr);
+  align-items: baseline; gap: 6px;
+  font-size: 10px; color: var(--text);
+}
+.host-trace-ttl { font-family: 'DM Mono', monospace; color: var(--muted); text-align: right; }
+.host-trace-rtt { font-family: 'DM Mono', monospace; color: var(--teal); white-space: nowrap; }
+.host-trace-address { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; }
+.host-trace-address strong { min-width: 0; font-size: 10px; font-weight: 500; color: var(--text); word-break: break-word; }
+.host-trace-address code { min-width: 0; font-size: 9.5px; color: var(--muted); word-break: break-word; }
+.host-trace-gap {
+  padding-left: 34px; font-family: 'DM Mono', monospace;
+  font-size: 9.5px; color: var(--dim);
+}
 .host-screenshots { display: flex; flex-direction: column; gap: 6px; }
 .host-http-entry { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .host-http-entry.match {
@@ -1381,6 +1420,47 @@ code, pre { font-family: 'DM Mono', ui-monospace, SFMono-Regular, monospace; }
   font-size: 9px; font-family: 'DM Mono', monospace;
 }
 .node-toggle:hover { color: var(--accent); border-color: var(--accent-dark); }
+
+/* ---------- Salida normal de Nmap (Raw) ---------- */
+.raw-view {
+  flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 70px 18px 28px;
+}
+.raw-head {
+  flex: 0 0 auto; max-width: 1400px; width: 100%; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.raw-title { min-width: 0; display: flex; align-items: center; gap: 8px; color: var(--accent); }
+.raw-title strong {
+  min-width: 0; font-size: 13px; color: var(--text-strong);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.raw-title span { flex: 0 0 auto; font-size: 10.5px; color: var(--muted); }
+.raw-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; }
+.raw-actions button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface-2); color: var(--text); font-size: 11px; cursor: pointer;
+}
+.raw-actions button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.raw-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.raw-actions button:disabled { opacity: .5; cursor: default; }
+.raw-state {
+  max-width: 1400px; width: 100%; margin: 0 auto;
+  padding: 28px; text-align: center; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--border); border-radius: 10px;
+}
+.raw-error { color: var(--red, var(--amber)); }
+.raw-pre {
+  flex: 1; min-height: 0; max-width: 1400px; width: 100%; margin: 0 auto;
+  padding: 14px 16px; overflow: auto;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--inset-bg); color: var(--text);
+  font-size: 11.5px; line-height: 1.5; tab-size: 8; white-space: pre;
+}
+.raw-pre::-webkit-scrollbar { width: 9px; height: 9px; }
+.raw-pre::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
 
 /* ---------- Responsive ---------- */
 @media (min-width: 821px) {

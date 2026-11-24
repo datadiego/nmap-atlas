@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { httpUrlsForHost } from '../httpUrls';
+import { ScriptsOpenContext } from '../scriptsContext';
 import { useI18n } from '../i18n/I18nProvider';
 import { screenshotUrl, useScreenshots } from '../screenshots';
 import type { NmapHost } from '../types';
@@ -44,6 +46,12 @@ export default function HostDetails({
   const screenshots = forHost(host);
   const httpPorts = httpUrlsForHost(host);
   const osSummary = host.os[0]?.name || host.osClasses[0]?.osFamily || host.osClasses[0]?.vendor || '';
+  const scriptCount = host.ports.reduce(
+    (total, port) => total + port.scripts.length + (port.service?.scripts?.length ?? 0),
+    0,
+  );
+  const [scriptsOpen, setScriptsOpen] = useState(open || openSections);
+  useEffect(() => { setScriptsOpen(open || openSections); }, [open, openSections]);
 
   type HttpItem = { port: string; url: string; shot?: (typeof screenshots)[number]['shot'] };
   const byPort = new Map<string, HttpItem>();
@@ -112,7 +120,31 @@ export default function HostDetails({
           </Row>
         )}
 
-        {portsContent && <Row label={t('host.ports')}>{portsContent}</Row>}
+        {portsContent && (
+          <ScriptsOpenContext.Provider value={{ open: scriptsOpen, setOpen: setScriptsOpen }}>
+            <Row label={t('host.ports')}>
+              {scriptCount > 0 && (
+                <div className="host-ports-head">
+                  <button
+                    type="button"
+                    className="host-scripts-toggle nodrag"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setScriptsOpen(!scriptsOpen);
+                    }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    title={scriptsOpen ? t('ports.hideScripts') : t('ports.showScripts')}
+                    aria-expanded={scriptsOpen}
+                  >
+                    {scriptsOpen ? <ChevronsDownUp size={13} /> : <ChevronsUpDown size={13} />}
+                    <span>{scriptsOpen ? t('ports.hideScripts') : t('ports.showScripts')}</span>
+                  </button>
+                </div>
+              )}
+              {portsContent}
+            </Row>
+          </ScriptsOpenContext.Provider>
+        )}
 
         {host.os.length > 0 && (
           <Row label={t('host.os')}>
@@ -180,6 +212,53 @@ export default function HostDetails({
             <code className="host-detail-chip">
               srtt {host.times.srtt} · rttvar {host.times.rttvar} · to {host.times.to}
             </code>
+          </Row>
+        )}
+
+        {host.traces.length > 0 && (
+          <Row label={t('host.traceroute')}>
+            {host.traces.map((trace, traceIndex) => (
+              <details
+                className="host-trace"
+                open={open || openSections}
+                key={`${trace.port}:${trace.proto}:${traceIndex}`}
+              >
+                <summary>
+                  <code className="host-detail-chip">{trace.port}/{trace.proto}</code>
+                  <span>
+                    {formatNumber(trace.hops.length)}{' '}
+                    {trace.hops.length === 1 ? t('host.hop') : t('host.hops')}
+                  </span>
+                </summary>
+                <div className="host-trace-hops">
+                  {trace.hops.map((hop, hopIndex) => {
+                    const previous = trace.hops[hopIndex - 1];
+                    const missing = previous && previous.ttl + 1 < hop.ttl
+                      ? [previous.ttl + 1, hop.ttl - 1]
+                      : null;
+                    return (
+                      <Fragment key={`${hop.ttl}:${hop.ipaddr}:${hopIndex}`}>
+                        {missing && (
+                          <span className="host-trace-gap">
+                            {missing[0] === missing[1]
+                              ? `… ${missing[0]}`
+                              : `… ${missing[0]}–${missing[1]}`}
+                          </span>
+                        )}
+                        <div className="host-trace-hop">
+                          <span className="host-trace-ttl">{hop.ttl}</span>
+                          <span className="host-trace-rtt">{hop.rtt ? `${hop.rtt} ms` : '*'}</span>
+                          <span className="host-trace-address">
+                            {hop.host && <strong>{hop.host}</strong>}
+                            <code>{hop.ipaddr}</code>
+                          </span>
+                        </div>
+                      </Fragment>
+                    );
+                  })}
+                </div>
+              </details>
+            ))}
           </Row>
         )}
 

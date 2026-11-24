@@ -70,6 +70,19 @@ export interface OsMatch {
   line: string;
 }
 
+export interface TraceHop {
+  ttl: number;
+  ipaddr: string;
+  rtt: string;
+  host: string;
+}
+
+export interface Traceroute {
+  port: string;
+  proto: string;
+  hops: TraceHop[];
+}
+
 export interface HostAddress {
   addr: string;
   type: string;
@@ -96,6 +109,7 @@ export interface NmapHost {
   uptime: string;
   distance: string;
   times: { srtt: string; rttvar: string; to: string } | null;
+  traces: Traceroute[];
   scripts: NmapScript[];
   notes: string;
 }
