@@ -134,6 +134,17 @@ export interface HostScreenshot {
 
 export type ScreenshotIndex = Record<string, HostScreenshot>;
 
+export interface NseScript {
+  name: string;
+  categories: string[];
+  description: string;
+}
+
+export interface NseScriptCatalog {
+  dir: string;
+  scripts: NseScript[];
+}
+
 export interface ApiStatus {
   ok: boolean;
   nmapAvailable: boolean;

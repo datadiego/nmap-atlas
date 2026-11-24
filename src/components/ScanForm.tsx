@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertCircle, Calculator, LoaderCircle, Play, Terminal, X } from 'lucide-react';
-import type { ApiStatus, NmapScan, ScanResult } from '../types';
+import type { ApiStatus, NmapScan, NseScriptCatalog, ScanResult } from '../types';
 import { playSuccessSound } from '../audio';
 import { useI18n } from '../i18n/I18nProvider';
 import type { TranslationKey } from '../i18n';
@@ -324,6 +324,8 @@ const EXCLUSIVE_FLAGS: Record<string, readonly string[]> = (() => {
   return rules;
 })();
 
+const SCRIPT_FLAG_PREFIX = '--script=';
+
 const parseOptionFlag = (flag: string): { base: string; value?: string } | null => {
   const direct = OPTION_BY_FLAG.get(flag);
   if (direct) {
@@ -341,13 +343,20 @@ const parseOptionFlag = (flag: string): { base: string; value?: string } | null 
 const parseOptionFlags = (flags: readonly string[]) => {
   const bases = new Set<string>();
   const args: Record<string, string> = {};
+  const scripts = new Set<string>();
   for (const flag of flags) {
+    if (flag.startsWith(SCRIPT_FLAG_PREFIX)) {
+      for (const name of flag.slice(SCRIPT_FLAG_PREFIX.length).split(',')) {
+        if (name.trim()) scripts.add(name.trim());
+      }
+      continue;
+    }
     const parsed = parseOptionFlag(flag);
     if (!parsed) continue;
     bases.add(parsed.base);
     if (parsed.value !== undefined) args[parsed.base] = parsed.value;
   }
-  return { bases, args };
+  return { bases, args, scripts };
 };
 
 const TIMINGS = ['-T0', '-T1', '-T2', '-T3', '-T4', '-T5'] as const;
@@ -436,6 +445,10 @@ export default function ScanForm({ status, onLoad }: Props) {
   }, [remember.options, rememberedForm.options, initialProfile]);
   const [options, setOptions] = useState<Set<string>>(() => new Set(initialOptions.bases));
   const [optionArgs, setOptionArgs] = useState<Record<string, string>>(() => initialOptions.args);
+  const [selectedScripts, setSelectedScripts] = useState<Set<string>>(() => new Set(initialOptions.scripts));
+  const [nseScripts, setNseScripts] = useState<NseScriptCatalog>({ dir: '', scripts: [] });
+  const [nseLoading, setNseLoading] = useState(true);
+  const [nseFilter, setNseFilter] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!busy) return;
@@ -484,18 +497,20 @@ export default function ScanForm({ status, onLoad }: Props) {
   const tooltipTimer = useRef<number | null>(null);
   const tooltipShowTimer = useRef<number | null>(null);
 
-  const effectiveOptions = useMemo(
-    () =>
-      [...options]
-        .map((base) => {
-          const arg = OPTION_BY_FLAG.get(base)?.arg;
-          if (!arg) return base;
-          const value = (optionArgs[base] ?? arg.defaultValue).trim();
-          return value ? `${arg.prefix}${value}` : null;
-        })
-        .filter((flag): flag is string => flag !== null),
-    [options, optionArgs],
-  );
+  const effectiveOptions = useMemo(() => {
+    const flags = [...options]
+      .map((base) => {
+        const arg = OPTION_BY_FLAG.get(base)?.arg;
+        if (!arg) return base;
+        const value = (optionArgs[base] ?? arg.defaultValue).trim();
+        return value ? `${arg.prefix}${value}` : null;
+      })
+      .filter((flag): flag is string => flag !== null);
+    if (selectedScripts.size > 0) {
+      flags.push(`${SCRIPT_FLAG_PREFIX}${[...selectedScripts].sort().join(',')}`);
+    }
+    return flags;
+  }, [options, optionArgs, selectedScripts]);
 
   const autoCommand = useMemo(() => {
     const flags = [
@@ -588,6 +603,26 @@ export default function ScanForm({ status, onLoad }: Props) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    fetch('/api/nmap/scripts')
+      .then(async (response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return await response.json() as NseScriptCatalog;
+      })
+      .then((catalog) => {
+        if (active) setNseScripts({
+          dir: catalog.dir ?? '',
+          scripts: Array.isArray(catalog.scripts) ? catalog.scripts : [],
+        });
+      })
+      .catch(() => {
+        if (active) setNseScripts({ dir: '', scripts: [] });
+      })
+      .finally(() => { if (active) setNseLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     const saved: Partial<RememberedForm> = {};
     if (remember.target) saved.target = target;
     if (remember.ports) saved.ports = ports;
@@ -667,6 +702,7 @@ export default function ScanForm({ status, onLoad }: Props) {
     const parsed = parseOptionFlags(flags);
     setOptions(parsed.bases);
     setOptionArgs(parsed.args);
+    setSelectedScripts(parsed.scripts);
     if (flags.includes('-p-')) setPorts('');
     if (id === 'hosts') setTiming('-T5');
   };
@@ -690,6 +726,26 @@ export default function ScanForm({ status, onLoad }: Props) {
     });
     // «Todos los puertos» y una lista concreta de puertos se excluyen entre sí.
     if (flag === '-p-' && !wasChecked) setPorts('');
+    // -sC y --script concretos son alternativas: no los enviamos a la vez.
+    if (flag === '-sC' && !wasChecked) setSelectedScripts(new Set());
+  };
+
+  const toggleScript = (name: string) => {
+    const wasChecked = selectedScripts.has(name);
+    setSelectedScripts((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+    if (!wasChecked) {
+      setOptions((current) => {
+        if (!current.has('-sC')) return current;
+        const next = new Set(current);
+        next.delete('-sC');
+        return next;
+      });
+    }
   };
 
   const apiError = async (response: Response) => {
@@ -778,9 +834,21 @@ export default function ScanForm({ status, onLoad }: Props) {
     }
   };
 
+  const visibleScripts = useMemo(() => {
+    const query = nseFilter.trim().toLowerCase();
+    if (!query) return nseScripts.scripts;
+    return nseScripts.scripts.filter((script) =>
+      [script.name, ...script.categories, script.description]
+        .join(' ')
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [nseFilter, nseScripts.scripts]);
+  const selectedScriptNames = useMemo(() => [...selectedScripts].sort(), [selectedScripts]);
+
   const nmapReady = Boolean(status?.nmapAvailable);
   const statusKey = nmapReady
-    ? `nmap:${status?.nmapVersion}:${status?.dbPath ?? status?.scansDir}:${status?.privileged}`
+    ? `nmap:${status?.nmapVersion}:${status?.dbPath ?? ''}:${status?.privileged}`
     : status
       ? `no-nmap:${status.nmapCommand}`
       : 'no-api';
@@ -793,6 +861,128 @@ export default function ScanForm({ status, onLoad }: Props) {
       // Si el almacenamiento no está disponible, el aviso se oculta igual en esta sesión.
     }
   };
+
+  const renderGroupSection = (group: (typeof OPTION_GROUPS)[number]) => (
+    <section className="scan-option-group" key={group.titleKey}>
+      <h4 className="scan-option-group-title">{t(group.titleKey)}</h4>
+      <div className="scan-option-grid">
+        {group.options.map((option) => (
+          <div className="scan-option" key={option.flag}>
+            <label
+              className="scan-check"
+              onMouseEnter={(event) => showOptionTooltip(option, event.currentTarget)}
+              onMouseLeave={hideOptionTooltip}
+              onFocus={(event) => showOptionTooltip(option, event.currentTarget)}
+              onBlur={hideOptionTooltipNow}
+            >
+              <input
+                type="checkbox"
+                checked={options.has(option.flag)}
+                aria-describedby={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`}
+                onChange={() => toggleOption(option.flag)}
+              />
+              <span><code>{option.flag}</code> {t(option.labelKey)}</span>
+              <span id={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`} className="sr-only">
+                {t(option.docKey)}
+              </span>
+            </label>
+            {option.arg && options.has(option.flag) && (
+              <input
+                className="scan-input scan-option-arg"
+                value={optionArgs[option.flag] ?? option.arg.defaultValue}
+                placeholder={t(option.arg.placeholderKey)}
+                aria-label={t(option.arg.placeholderKey)}
+                spellCheck={false}
+                onChange={(event) =>
+                  setOptionArgs((current) => ({ ...current, [option.flag]: event.target.value }))
+                }
+              />
+            )}
+          </div>
+        ))}
+        {group.titleKey === 'group.servicesOs' && (
+          <div className="scan-option">
+            <label className="scan-check">
+              <input
+                type="checkbox"
+                checked={gowitness}
+                onChange={(event) => setGowitness(event.target.checked)}
+              />
+              <span><code>gowitness</code> {t('scan.gowitness')}</span>
+            </label>
+            {gowitness && status?.saving === false && (
+              <small className="scan-option-warning">{t('scan.gowitnessNoSave')}</small>
+            )}
+            {gowitness && status && !status.gowitnessAvailable && (
+              <small className="scan-option-warning">{t('scan.gowitnessMissing')}</small>
+            )}
+            {gowitness && status?.gowitnessAvailable && (
+              <small className="scan-option-note"><code>{status.screenshotsDir}</code></small>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  const scriptsSection = (
+    <section className="scan-option-group scan-scripts">
+      <h4 className="scan-option-group-title">{t('scan.scriptsTitle')}</h4>
+      <div className="scan-scripts-head">
+        <input
+          className="scan-input scan-option-arg scan-scripts-search"
+          type="search"
+          value={nseFilter}
+          placeholder={t('scan.scriptsSearch')}
+          aria-label={t('scan.scriptsSearch')}
+          onChange={(event) => setNseFilter(event.target.value)}
+        />
+        {selectedScriptNames.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-ghost scan-scripts-clear"
+            onClick={() => setSelectedScripts(new Set())}
+          >
+            {t('scan.scriptsClear')}
+          </button>
+        )}
+      </div>
+      <div className="scan-scripts-list">
+        {!nseLoading && nseScripts.scripts.length === 0 && (
+          <p className="scan-scripts-empty">{t('scan.scriptsEmpty')}</p>
+        )}
+        {!nseLoading && nseScripts.scripts.length > 0 && visibleScripts.length === 0 && (
+          <p className="scan-scripts-empty">{t('scan.scriptsNoMatch')}</p>
+        )}
+        {visibleScripts.map((script) => (
+          <label className="scan-check scan-script" key={script.name} title={script.description || script.name}>
+            <input
+              type="checkbox"
+              checked={selectedScripts.has(script.name)}
+              onChange={() => toggleScript(script.name)}
+            />
+            <span className="scan-script-text">
+              <code>{script.name}</code>
+              {script.categories.length > 0 && <small>{script.categories.join(' · ')}</small>}
+            </span>
+          </label>
+        ))}
+      </div>
+      {selectedScriptNames.length > 0 && (
+        <small className="scan-scripts-selected">
+          {t('scan.scriptsSelected', { count: formatNumber(selectedScriptNames.length) })}:{' '}
+          <code>{SCRIPT_FLAG_PREFIX}{selectedScriptNames.join(',')}</code>
+        </small>
+      )}
+    </section>
+  );
+
+  const dnsGroup = OPTION_GROUPS.find((group) => group.titleKey === 'group.dnsNetworkOutput');
+  const stackedFollowers: Record<string, ReactNode> = {
+    'group.servicesOs': scriptsSection,
+    ...(dnsGroup ? { 'group.discoveryPorts': renderGroupSection(dnsGroup) } : {}),
+  };
+  const hiddenGroups = new Set<TranslationKey>(['group.dnsNetworkOutput']);
 
   return (
     <div className="scan-form">
@@ -947,71 +1137,21 @@ export default function ScanForm({ status, onLoad }: Props) {
         />
       </div>
 
-      <div className="scan-gowitness">
-        <label>
-          <input
-            type="checkbox"
-            checked={gowitness}
-            onChange={(event) => setGowitness(event.target.checked)}
-          />
-          <span>{t('scan.gowitness')}</span>
-        </label>
-        <small>{t('scan.gowitnessHelp')}</small>
-        {gowitness && status?.saving === false && (
-          <small className="scan-gowitness-warning">{t('scan.gowitnessNoSave')}</small>
-        )}
-        {gowitness && status && !status.gowitnessAvailable && (
-          <small className="scan-gowitness-warning">{t('scan.gowitnessMissing')}</small>
-        )}
-        {gowitness && status?.gowitnessAvailable && (
-          <small><code>{status.screenshotsDir}</code></small>
-        )}
-      </div>
-
       <fieldset className="scan-options">
         <legend>{t('scan.additionalOptions')}</legend>
         <div className="scan-option-groups">
-          {OPTION_GROUPS.map((group) => (
-            <section className="scan-option-group" key={group.titleKey}>
-              <h4 className="scan-option-group-title">{t(group.titleKey)}</h4>
-              <div className="scan-option-grid">
-                {group.options.map((option) => (
-                  <div className="scan-option" key={option.flag}>
-                    <label
-                      className="scan-check"
-                      onMouseEnter={(event) => showOptionTooltip(option, event.currentTarget)}
-                      onMouseLeave={hideOptionTooltip}
-                      onFocus={(event) => showOptionTooltip(option, event.currentTarget)}
-                      onBlur={hideOptionTooltipNow}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={options.has(option.flag)}
-                        aria-describedby={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`}
-                        onChange={() => toggleOption(option.flag)}
-                      />
-                      <span><code>{option.flag}</code> {t(option.labelKey)}</span>
-                      <span id={`option-doc-${option.flag.replace(/[^A-Za-z0-9]/g, '')}`} className="sr-only">
-                        {t(option.docKey)}
-                      </span>
-                    </label>
-                    {option.arg && options.has(option.flag) && (
-                      <input
-                        className="scan-input scan-option-arg"
-                        value={optionArgs[option.flag] ?? option.arg.defaultValue}
-                        placeholder={t(option.arg.placeholderKey)}
-                        aria-label={t(option.arg.placeholderKey)}
-                        spellCheck={false}
-                        onChange={(event) =>
-                          setOptionArgs((current) => ({ ...current, [option.flag]: event.target.value }))
-                        }
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+          {OPTION_GROUPS
+            .filter((group) => !hiddenGroups.has(group.titleKey))
+            .map((group) => {
+              const section = renderGroupSection(group);
+              const follower = stackedFollowers[group.titleKey];
+              return follower ? (
+                <div className="scan-option-stack" key={`${group.titleKey}-stack`}>
+                  {section}
+                  {follower}
+                </div>
+              ) : section;
+            })}
         </div>
       </fieldset>
 
