@@ -54,7 +54,20 @@ Los artefactos del modelo anterior (carpeta `scans/`, `atlas-screenshots.json` y
 
 ### Permisos
 
-`sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v nmap)"` + `./nmap-atlas --nmap-privileged` (o `NMAP_ATLAS_NMAP_PRIVILEGED=1`): nmap exige `--privileged` aunque tenga capacidades. Alternativa: `--nmap-sudo` con NOPASSWD en sudoers. Con `sudo ./nmap-atlas`, gowitness se busca en el home de `SUDO_USER`; si no, `--gowitness-command <ruta>`.
+Algunas funcionalidades de nmap necesitan permisos elevados, puedes usar:
+
+
+```bash
+sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v nmap)"
+```
+
+Y lanzar el servidor con:
+
+```bash
+./nmap-atlas --nmap-privileged` 
+```
+
+gowitness se busca en el home de `SUDO_USER`; también puedes especificar la ruta con `--gowitness-command <ruta>`.
 
 ## Funcionalidades
 
