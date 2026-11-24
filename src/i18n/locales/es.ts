@@ -287,6 +287,7 @@ export const es = {
   'host.reason': 'Motivo',
   'host.addresses': 'Direcciones',
   'host.hostnames': 'Nombres',
+  'host.ports': 'Puertos',
   'host.http': 'HTTP',
   'host.httpOpen': 'Abrir {url} en una pestaña nueva ↗',
   'host.os': 'Sistema operativo',

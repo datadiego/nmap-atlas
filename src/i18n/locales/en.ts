@@ -289,6 +289,7 @@ export const en: Translation = {
   'host.reason': 'Reason',
   'host.addresses': 'Addresses',
   'host.hostnames': 'Names',
+  'host.ports': 'Ports',
   'host.http': 'HTTP',
   'host.httpOpen': 'Open {url} in a new tab ↗',
   'host.os': 'Operating system',

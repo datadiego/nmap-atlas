@@ -7,6 +7,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import { hostLabel } from '../parser/nmapXml';
 import { screenshotUrl } from '../screenshots';
 import HostDetails from './HostDetails';
+import PortRows from './PortRows';
 import ScrollToTop from './ScrollToTop';
 
 export interface CaptureItem {
@@ -231,6 +232,7 @@ export default function ScreenshotGrid({
                 open
                 openSections
                 highlightPort={selectedCapture.port}
+                portsContent={<PortRows host={selectedCapture.nmapHost} />}
                 onNotesChange={(notes) => onNotesChange(selectedCapture.hostKey, notes)}
                 onNotesCommit={() => onNotesCommit(selectedCapture.hostKey)}
               />

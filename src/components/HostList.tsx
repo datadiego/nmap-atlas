@@ -232,57 +232,60 @@ export default function HostList({
 
                     {expanded && (
                       <div className="host-list-detail">
-                        {host.ports.length > 0 && (
-                          <div className="host-list-ports">
-                            {host.ports.map((port) => {
-                              const service = port.service;
-                              const product = [service?.product, service?.version]
-                                .filter(Boolean)
-                                .join(' ');
-                              return (
-                                <div className="host-list-port" key={`${port.protocol}:${port.portId}`}>
-                                  <span className="port-number">{port.portId}/{port.protocol}</span>
-                                  <span
-                                    className="port-state"
-                                    style={{ color: stateColor(port.state) }}
-                                  >
-                                    {stateKeys[port.state]
-                                      ? t(stateKeys[port.state])
-                                      : port.state}
-                                  </span>
-                                  <span
-                                    className="host-list-port-service"
-                                    title={[service?.name, product].filter(Boolean).join(' · ')}
-                                  >
-                                    {service?.name || t('ports.unknown')}
-                                    {product && ` · ${product}`}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {host.extraPorts.map((group, index) => (
-                          <div className="ports-card-extra" key={`${group.state}:${index}`}>
-                            {t('ports.extra', {
-                              count: formatNumber(group.count),
-                              state: stateKeys[group.state]
-                                ? t(stateKeys[group.state])
-                                : group.state,
-                            })}
-                            <span>
-                              {group.reasons
-                                .map((reason) => `${formatNumber(reason.count)} ${reason.reason}`)
-                                .join(' · ')}
-                            </span>
-                          </div>
-                        ))}
-
                         <HostDetails
                           host={host}
                           open
                           openSections
+                          portsContent={
+                            <>
+                              {host.ports.length > 0 && (
+                                <div className="host-list-ports">
+                                  {host.ports.map((port) => {
+                                    const service = port.service;
+                                    const product = [service?.product, service?.version]
+                                      .filter(Boolean)
+                                      .join(' ');
+                                    return (
+                                      <div className="host-list-port" key={`${port.protocol}:${port.portId}`}>
+                                        <span className="port-number">{port.portId}/{port.protocol}</span>
+                                        <span
+                                          className="port-state"
+                                          style={{ color: stateColor(port.state) }}
+                                        >
+                                          {stateKeys[port.state]
+                                            ? t(stateKeys[port.state])
+                                            : port.state}
+                                        </span>
+                                        <span
+                                          className="host-list-port-service"
+                                          title={[service?.name, product].filter(Boolean).join(' · ')}
+                                        >
+                                          {service?.name || t('ports.unknown')}
+                                          {product && ` · ${product}`}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {host.extraPorts.map((group, index) => (
+                                <div className="ports-card-extra" key={`${group.state}:${index}`}>
+                                  {t('ports.extra', {
+                                    count: formatNumber(group.count),
+                                    state: stateKeys[group.state]
+                                      ? t(stateKeys[group.state])
+                                      : group.state,
+                                  })}
+                                  <span>
+                                    {group.reasons
+                                      .map((reason) => `${formatNumber(reason.count)} ${reason.reason}`)
+                                      .join(' · ')}
+                                  </span>
+                                </div>
+                              ))}
+                            </>
+                          }
                           onNotesChange={(notes) => onNotesChange(host.key, notes)}
                           onNotesCommit={() => onNotesCommit(host.key)}
                         />

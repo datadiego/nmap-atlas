@@ -13,6 +13,8 @@ interface Props {
   onNotesCommit?: () => void;
   /** Resalta la entrada HTTP de este puerto, por ejemplo al abrirla desde una captura. */
   highlightPort?: string;
+  /** Puertos de la vista lista/grafo, se renderizan dentro de esta ficha. */
+  portsContent?: ReactNode;
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -35,6 +37,7 @@ export default function HostDetails({
   onNotesChange,
   onNotesCommit,
   highlightPort,
+  portsContent,
 }: Props) {
   const { t, formatNumber } = useI18n();
   const { forHost } = useScreenshots();
@@ -109,67 +112,7 @@ export default function HostDetails({
           </Row>
         )}
 
-        {httpItems.length > 0 && (
-          <Row label={t('host.http')}>
-            <div className="host-screenshots">
-              {httpItems.map(({ port, url, shot }) => (
-                <div
-                  className={`host-http-entry${highlightPort === port ? ' match' : ''}`}
-                  key={`${port}:${url || shot?.file}`}
-                  data-http-port={port}
-                >
-                  {shot ? (
-                    <div className="host-screenshot">
-                      <a
-                        className="host-screenshot-image"
-                        href={screenshotUrl(shot.file)}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={shot.title
-                          ? `${shot.title} · ${t('host.screenshotOpen', { url: shot.url })}`
-                          : t('host.screenshotOpen', { url: shot.url })}
-                      >
-                        <img src={screenshotUrl(shot.file)} alt={shot.url} loading="lazy" />
-                      </a>
-                      <span>
-                        <strong>:{port}</strong>
-                        {shot.title && <span>{shot.title}</span>}
-                        {url ? (
-                          <a
-                            className="host-screenshot-url"
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            title={t('host.httpOpen', { url })}
-                          >
-                            <code>{url}</code>
-                            <span aria-hidden="true">↗</span>
-                          </a>
-                        ) : (
-                          <code>{shot.url}</code>
-                        )}
-                      </span>
-                    </div>
-                  ) : (
-                    url && (
-                      <a
-                        className="host-http-link"
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={t('host.httpOpen', { url })}
-                      >
-                        <code>:{port}</code>
-                        <span>{url}</span>
-                        <span aria-hidden="true">↗</span>
-                      </a>
-                    )
-                  )}
-                </div>
-              ))}
-            </div>
-          </Row>
-        )}
+        {portsContent && <Row label={t('host.ports')}>{portsContent}</Row>}
 
         {host.os.length > 0 && (
           <Row label={t('host.os')}>
@@ -248,6 +191,68 @@ export default function HostDetails({
                 <code>{script.output}</code>
               </div>
             ))}
+          </Row>
+        )}
+
+        {httpItems.length > 0 && (
+          <Row label={t('host.http')}>
+            <div className="host-screenshots">
+              {httpItems.map(({ port, url, shot }) => (
+                <div
+                  className={`host-http-entry${highlightPort === port ? ' match' : ''}`}
+                  key={`${port}:${url || shot?.file}`}
+                  data-http-port={port}
+                >
+                  {shot ? (
+                    <div className="host-screenshot">
+                      <span>
+                        <strong>:{port}</strong>
+                        {shot.title && <span>{shot.title}</span>}
+                        {url ? (
+                          <a
+                            className="host-screenshot-url"
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={t('host.httpOpen', { url })}
+                          >
+                            <code>{url}</code>
+                            <span aria-hidden="true">↗</span>
+                          </a>
+                        ) : (
+                          <code>{shot.url}</code>
+                        )}
+                      </span>
+                      <a
+                        className="host-screenshot-image"
+                        href={screenshotUrl(shot.file)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={shot.title
+                          ? `${shot.title} · ${t('host.screenshotOpen', { url: shot.url })}`
+                          : t('host.screenshotOpen', { url: shot.url })}
+                      >
+                        <img src={screenshotUrl(shot.file)} alt={shot.url} loading="lazy" />
+                      </a>
+                    </div>
+                  ) : (
+                    url && (
+                      <a
+                        className="host-http-link"
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={t('host.httpOpen', { url })}
+                      >
+                        <code>:{port}</code>
+                        <span>{url}</span>
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    )
+                  )}
+                </div>
+              ))}
+            </div>
           </Row>
         )}
       </div>
