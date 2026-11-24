@@ -13,11 +13,14 @@
     "start": "npm run build && node bin/nmap-atlas.mjs",
     "serve": "node bin/nmap-atlas.mjs",
     "cli": "node bin/nmap-atlas.mjs",
-    "binary": "npm run build && bun build bin/nmap-atlas.mjs --compile --asset ./dist --asset-naming \"[name].[ext]\" --outfile nmap-atlas"
+    "binary": "npm run build && bun build bin/nmap-atlas.mjs --compile --asset ./dist --asset ./db --asset-naming \"[name].[ext]\" --outfile nmap-atlas"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.4",
+    "@hono/node-server": "^2.1.11",
     "@xyflow/react": "^12.3.0",
+    "fast-xml-parser": "^5.12.1",
+    "hono": "^4.13.21",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

@@ -98,7 +98,6 @@ export interface NmapHost {
   times: { srtt: string; rttvar: string; to: string } | null;
   scripts: NmapScript[];
   notes: string;
-  hasXmlNote: boolean;
 }
 
 export interface RunStats {
@@ -141,6 +140,7 @@ export interface ApiStatus {
   nmapVersion: string | null;
   nmapCommand: string;
   privileged: boolean;
+  dbPath?: string;
   scansDir: string;
   saving: boolean;
   savedScans: number;
@@ -176,6 +176,7 @@ export interface SavedScan {
 
 export interface ScanResult {
   xml: string;
+  scan?: NmapScan;
   command: string;
   durationMs: number;
   exitCode: number | null;

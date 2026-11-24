@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { AlertCircle, Check, FileCode2, FolderOpen, LoaderCircle, Settings2, Terminal, Trash2, X } from 'lucide-react';
-import type { ApiStatus, SavedScan } from '../types';
+import type { ApiStatus, NmapScan, SavedScan } from '../types';
 import { useI18n } from '../i18n/I18nProvider';
 import OptionsPanel from './OptionsPanel';
 import ScanForm from './ScanForm';
 
 interface Props {
-  onLoad: (xml: string, filename: string, warnings?: string[]) => void;
-  onDeleteSaved?: (name: string) => void;
-  onDeleteAllSaved?: (names: string[]) => void;
+  onLoad: (scan: NmapScan, warnings?: string[]) => void;
 }
 
-export default function UploadView({ onLoad, onDeleteSaved, onDeleteAllSaved }: Props) {
+export default function UploadView({ onLoad }: Props) {
   const { t, formatNumber, formatDateTime } = useI18n();
   const [mode, setMode] = useState<'file' | 'scan' | 'options'>('scan');
   const [apiStatus, setApiStatus] = useState<ApiStatus | null | undefined>(undefined);
@@ -56,18 +54,23 @@ export default function UploadView({ onLoad, onDeleteSaved, onDeleteAllSaved }: 
     setError('');
     try {
       const xml = await file.text();
-      const response = await fetch('/api/scans/upload', {
+      const response = await fetch('/api/scans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ xml, filename: file.name }),
       });
       const data = (await response.json().catch(() => ({}))) as {
         name?: string;
+        scan?: NmapScan;
+        warnings?: string[];
         error?: string;
       };
-      if (!response.ok || !data.name) throw new Error(data.error || t('upload.copyError'));
+      if (!response.ok || !data.scan) throw new Error(data.error || t('upload.copyError'));
       await loadSaved();
-      onLoad(xml, data.name, [t('upload.copySaved', { name: data.name })]);
+      onLoad(data.scan, [
+        t('upload.copySaved', { name: data.name ?? data.scan.filename }),
+        ...(data.warnings ?? []),
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('upload.readError'));
     }
@@ -77,9 +80,9 @@ export default function UploadView({ onLoad, onDeleteSaved, onDeleteAllSaved }: 
     setError('');
     setLoadingSaved(name);
     try {
-      const response = await fetch(`/api/scans/${encodeURIComponent(name)}`);
+      const response = await fetch(`/api/scans/${encodeURIComponent(name)}/json`);
       if (!response.ok) throw new Error(t('upload.openErrorStatus', { status: response.status }));
-      onLoad(await response.text(), name);
+      onLoad(await response.json() as NmapScan);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('upload.openError'));
     } finally {
@@ -91,10 +94,8 @@ export default function UploadView({ onLoad, onDeleteSaved, onDeleteAllSaved }: 
     setError('');
     setDeletingSaved(name);
     try {
-      const response = await fetch('/api/scans/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+      const response = await fetch(`/api/scans/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
       });
       const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
@@ -104,7 +105,6 @@ export default function UploadView({ onLoad, onDeleteSaved, onDeleteAllSaved }: 
         throw new Error(message || t('upload.deleteError'));
       }
       setScans((current) => current.filter((scan) => scan.name !== name));
-      onDeleteSaved?.(name);
       setConfirmingDelete(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('upload.deleteError'));
@@ -117,10 +117,9 @@ export default function UploadView({ onLoad, onDeleteSaved, onDeleteAllSaved }: 
     setError('');
     setDeletingAll(true);
     try {
-      const response = await fetch('/api/scans/delete-all', { method: 'POST' });
+      const response = await fetch('/api/scans', { method: 'DELETE' });
       const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(data.error || t('upload.deleteAllError'));
-      onDeleteAllSaved?.(scans.map((scan) => scan.name));
       setScans([]);
       setConfirmingDelete(null);
       setConfirmingDeleteAll(false);

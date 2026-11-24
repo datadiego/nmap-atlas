@@ -9,13 +9,12 @@ interface Props {
 }
 
 function normalizeName(raw: string): string {
-  const base = raw
+  return raw
     .trim()
     .replace(/\.xml$/i, '')
     .replace(/[^A-Za-z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 76);
-  return base ? `${base}.xml` : '';
 }
 
 export default function RenameScan({ filename, onRenamed, onEditingChange }: Props) {
@@ -37,8 +36,6 @@ export default function RenameScan({ filename, onRenamed, onEditingChange }: Pro
     // El setter de estado de React es estable; solo queremos reaccionar al nombre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filename]);
-
-  if (!/\.xml$/i.test(filename)) return null;
 
   const translateError = (message: string) => {
     if (message.includes('Ya existe')) return t('app.renameExists');
@@ -66,10 +63,10 @@ export default function RenameScan({ filename, onRenamed, onEditingChange }: Pro
     setBusy(true);
     setError('');
     try {
-      const response = await fetch('/api/scans/rename', {
-        method: 'POST',
+      const response = await fetch(`/api/scans/${encodeURIComponent(filename)}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: filename, to: name }),
+        body: JSON.stringify({ name }),
       });
       const data = (await response.json().catch(() => ({}))) as { name?: string; error?: string };
       if (!response.ok) throw new Error(data.error ?? t('app.renameError'));

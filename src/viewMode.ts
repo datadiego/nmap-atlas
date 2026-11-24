@@ -1,4 +1,5 @@
 import type { LayoutMode } from './graph/layouts';
+import { pushSettings } from './settings';
 
 /** La lista y las capturas comparten selector con las dos distribuciones del grafo. */
 export type ViewMode = LayoutMode | 'list' | 'screenshots';
@@ -22,4 +23,5 @@ export function saveViewMode(mode: ViewMode) {
   } catch {
     // Sin almacenamiento, el modo se mantiene solo durante esta sesión.
   }
+  pushSettings({ viewMode: mode });
 }

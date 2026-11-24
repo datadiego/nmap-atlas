@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { pushSettings } from '../settings';
 import {
   formatDateTime,
   formatNumber,
@@ -42,6 +43,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
     saveLocale(next);
+    pushSettings({ locale: next });
   }, []);
 
   const value = useMemo<I18nContextValue>(() => ({

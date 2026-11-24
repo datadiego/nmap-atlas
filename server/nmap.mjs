@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { getByName, saveParsed } from '../db/repositories/scans.mjs';
+import { updateProgress } from '../db/repositories/jobs.mjs';
 import { captureHttpScreenshots } from './gowitness.mjs';
-
-export class ValidationError extends Error {}
+import { parseNmapXml } from './parser/nmapXml.mjs';
+import { ValidationError } from './errors.mjs';
 
 const PROFILES = {
   quick: ['-F', '--open'],
@@ -78,7 +78,6 @@ const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const MIN_HOST_TIMEOUT_MS = 1_000;
 const MAX_HOST_TIMEOUT_MS = 30 * 60 * 1000;
-const SAFE_NAME = /^[A-Za-z0-9._-]+\.xml$/;
 const SAFE_SCAN_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
 const MAX_COMMAND_LENGTH = 1000;
@@ -355,14 +354,22 @@ export function buildArgs(payload, config) {
 }
 
 function nmapCommand(config) {
-  const command = Array.isArray(config.nmapCommand) && config.nmapCommand.length
+  return Array.isArray(config.nmapCommand) && config.nmapCommand.length
     ? config.nmapCommand
     : ['nmap'];
+}
+
+/** Con setcap, nmap sigue creyendo que no es root hasta recibir --privileged. */
+function nmapInvocation(config) {
+  const command = nmapCommand(config);
+  if (config.nmapPrivileged && !command.includes('--privileged')) {
+    return [...command, '--privileged'];
+  }
   return command;
 }
 
 export async function getNmapVersion(config) {
-  const command = nmapCommand(config);
+  const command = nmapInvocation(config);
   return new Promise((resolve) => {
     const child = spawn(command[0], [...command.slice(1), '--version'], {
       shell: false,
@@ -379,41 +386,13 @@ export async function getNmapVersion(config) {
   });
 }
 
-async function saveXml(scansDir, xml, target) {
-  await mkdir(scansDir, { recursive: true });
+function scanName(target) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const slug = target
+  const slug = String(target ?? '')
     .replace(/[^A-Za-z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 48) || 'scan';
-  const name = `${stamp}-${slug}.xml`;
-  await writeFile(path.join(scansDir, name), xml, 'utf8');
-  return name;
-}
-
-/** Guarda una copia de un XML subido sin tocar el archivo original del usuario. */
-export async function saveUploadedScan(scansDir, xml, originalName) {
-  await mkdir(scansDir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const slug = String(originalName ?? '')
-    .replace(/\.xml$/i, '')
-    .replace(/[^A-Za-z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48) || 'upload';
-  const base = `upload-${stamp}-${slug}`;
-  let name = `${base}.xml`;
-  let suffix = 1;
-  while (true) {
-    try {
-      await stat(path.join(scansDir, name));
-      name = `${base}-${suffix += 1}.xml`;
-    } catch (error) {
-      if (error?.code === 'ENOENT') break;
-      throw error;
-    }
-  }
-  await writeFile(path.join(scansDir, name), xml, 'utf8');
-  return name;
+  return `${stamp}-${slug}`;
 }
 
 /** Detiene un escaneo en curso y deja constancia en su stderr. */
@@ -426,9 +405,9 @@ export function cancelScan(rawId, activeScans) {
   return true;
 }
 
-export async function runNmap(payload, config, activeScans = new Map()) {
+export async function runNmap(payload, config, db, activeScans = new Map()) {
   const { args, target } = buildArgs(payload, config);
-  const command = nmapCommand(config);
+  const command = nmapInvocation(config);
   // Nmap solo emite <taskprogress> en el XML si se pide explícitamente.
   // Es la única forma fiable de saber cuántas IPs lleva procesadas, incluso
   // cuando no hay resultados (hosts caídos o sin respuesta).
@@ -471,6 +450,7 @@ export async function runNmap(payload, config, activeScans = new Map()) {
       stats.log.push(`${time}  ${message}`);
       if (stats.log.length > 200) stats.log.shift();
       if (/^(Descubierto|Analizando|Completado) /.test(message)) lastHostEvent = Date.now();
+      if (scanId) updateProgress(db, scanId, stats);
     };
     const progressText = () => {
       const current = stats.currentAddress
@@ -610,14 +590,54 @@ export async function runNmap(payload, config, activeScans = new Map()) {
     throw new Error(`nmap no devolvió XML. ${detail}${hint}`);
   }
 
-  const savedAs = config.save ? await saveXml(config.scansDir, result.stdout, target) : null;
+  const displayName = `nmap ${target}`;
+  let parsed;
+  try {
+    parsed = parseNmapXml(result.stdout);
+  } catch (error) {
+    // Un XML dañado no debe impedir ver el stderr ni el progreso del escaneo.
+    parsed = {
+      scanner: 'nmap',
+      args: '',
+      start: '',
+      startstr: '',
+      version: '',
+      xmloutputversion: '',
+      scanInfos: [],
+      hosts: [],
+      runStats: null,
+      filename: '',
+      rawSize: Buffer.byteLength(result.stdout, 'utf8'),
+      warnings: [error instanceof Error ? error.message : String(error)],
+    };
+  }
+
+  let savedAs = null;
+  if (config.save) {
+    savedAs = saveParsed(db, {
+      name: scanName(target),
+      xml: result.stdout,
+      parsed,
+      source: 'nmap',
+      command: [...command, ...args].join(' '),
+      durationMs: Date.now() - started,
+      exitCode: result.code,
+      stderr: result.stderr.trim().slice(-1000),
+      jobId: scanId,
+    });
+    parsed = { ...parsed, filename: savedAs };
+  } else {
+    parsed = { ...parsed, filename: displayName };
+  }
+
   let gowitness = null;
   if (payload.gowitness === true) {
     if (!savedAs) {
-      gowitness = 'No se pueden capturar pantallas sin un XML guardado (--no-save).';
+      gowitness = 'No se pueden capturar pantallas sin guardar el escaneo (--no-save).';
     } else {
       try {
-        gowitness = await captureHttpScreenshots(path.join(config.scansDir, savedAs), config);
+        const row = getByName(db, savedAs);
+        gowitness = await captureHttpScreenshots(result.stdout, config, db, row.id);
       } catch (error) {
         // Un fallo de gowitness nunca debe impedir devolver el escaneo.
         gowitness = `No se pudieron capturar pantallas: ${error.message}`;
@@ -626,6 +646,7 @@ export async function runNmap(payload, config, activeScans = new Map()) {
   }
   return {
     xml: result.stdout,
+    scan: parsed,
     command: [...command, ...args].join(' '),
     durationMs: Date.now() - started,
     exitCode: result.code,
@@ -634,79 +655,4 @@ export async function runNmap(payload, config, activeScans = new Map()) {
     gowitness,
     timeoutMs,
   };
-}
-
-export async function listScans(scansDir) {
-  try {
-    const entries = await readdir(scansDir, { withFileTypes: true });
-    const scans = await Promise.all(
-      entries
-        .filter((entry) => entry.isFile() && SAFE_NAME.test(entry.name))
-        .map(async (entry) => {
-          const info = await stat(path.join(scansDir, entry.name));
-          return { name: entry.name, size: info.size, mtime: info.mtime.toISOString() };
-        }),
-    );
-    return scans.sort((a, b) => b.mtime.localeCompare(a.mtime));
-  } catch (error) {
-    if (error?.code === 'ENOENT') return [];
-    throw error;
-  }
-}
-
-export async function readScan(scansDir, name) {
-  if (!SAFE_NAME.test(name)) throw new ValidationError('Nombre de escaneo no válido.');
-  return readFile(path.join(scansDir, name), 'utf8');
-}
-
-async function fileExists(file) {
-  try {
-    await stat(file);
-    return true;
-  } catch (error) {
-    if (error?.code === 'ENOENT') return false;
-    throw error;
-  }
-}
-
-export async function renameScan(scansDir, from, to) {
-  if (!SAFE_NAME.test(from) || !SAFE_NAME.test(to)) {
-    throw new ValidationError('Nombre de escaneo no válido.');
-  }
-  if (from === to) return from;
-  const source = path.join(scansDir, from);
-  const destination = path.join(scansDir, to);
-  if (!(await fileExists(source))) throw new ValidationError('El escaneo indicado no existe.');
-  if (await fileExists(destination)) throw new ValidationError('Ya existe un escaneo con ese nombre.');
-  await rename(source, destination);
-  return to;
-}
-
-export async function deleteScan(scansDir, name) {
-  if (!SAFE_NAME.test(name)) throw new ValidationError('Nombre de escaneo no válido.');
-  try {
-    await unlink(path.join(scansDir, name));
-  } catch (error) {
-    if (error?.code === 'ENOENT') throw new ValidationError('El escaneo indicado no existe.');
-    throw error;
-  }
-  return name;
-}
-
-export async function deleteAllScans(scansDir) {
-  const scans = await listScans(scansDir);
-  await Promise.all(
-    scans.map(async (scan) => {
-      try {
-        await unlink(path.join(scansDir, scan.name));
-      } catch (error) {
-        if (error?.code !== 'ENOENT') throw error;
-      }
-    }),
-  );
-  return scans.length;
-}
-
-export function validateScanName(name) {
-  return SAFE_NAME.test(name);
 }

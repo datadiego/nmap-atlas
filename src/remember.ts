@@ -1,4 +1,5 @@
 import type { TranslationKey } from './i18n';
+import { pushSettings } from './settings';
 
 const REMEMBER_KEY = 'nmap-atlas:remember';
 const REMEMBERED_FORM_KEY = 'nmap-atlas:remembered-form';
@@ -86,6 +87,7 @@ export const saveRememberSettings = (settings: RememberSettings) => {
   } catch {
     // Sin almacenamiento disponible, los ajustes se recuerdan solo en esta sesión.
   }
+  pushSettings({ remember: settings });
 };
 
 export const saveRememberedForm = (
@@ -102,6 +104,10 @@ export const saveRememberedForm = (
   } catch {
     // Sin almacenamiento disponible, los ajustes se recuerdan solo en esta sesión.
   }
+  pushSettings({
+    remember: settings,
+    rememberedForm: Object.keys(values).length ? values : {},
+  });
 };
 
 /** Desactiva campos y elimina sus valores guardados para que se carguen los defaults. */

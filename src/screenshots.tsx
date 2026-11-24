@@ -63,4 +63,4 @@ export function ScreenshotsProvider({ children }: { children: ReactNode }) {
 export const useScreenshots = () => useContext(ScreenshotsContext);
 
 export const screenshotUrl = (file: string) =>
-  `/api/screenshots/image?file=${encodeURIComponent(file)}`;
+  `/api/screenshots/${encodeURIComponent(file)}/image`;

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { pushSettings } from './settings';
 
 export type Theme = 'gruvbox' | 'dracula' | 'dark' | 'light';
 
@@ -36,6 +37,7 @@ export function saveTheme(theme: Theme): void {
   } catch {
     // localStorage puede no estar disponible.
   }
+  pushSettings({ theme });
   emitThemeChange();
 }
 

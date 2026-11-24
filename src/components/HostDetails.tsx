@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { httpUrlsForHost } from '../httpUrls';
 import { useI18n } from '../i18n/I18nProvider';
 import { screenshotUrl, useScreenshots } from '../screenshots';
 import type { NmapHost } from '../types';
@@ -35,7 +36,21 @@ export default function HostDetails({
   const { t, formatNumber } = useI18n();
   const { forHost } = useScreenshots();
   const screenshots = forHost(host);
+  const httpPorts = httpUrlsForHost(host);
   const osSummary = host.os[0]?.name || host.osClasses[0]?.osFamily || host.osClasses[0]?.vendor || '';
+
+  type HttpItem = { port: string; url: string; shot?: (typeof screenshots)[number]['shot'] };
+  const byPort = new Map<string, HttpItem>();
+  for (const { port, url } of httpPorts) {
+    byPort.set(String(port), { port: String(port), url });
+  }
+  for (const { port, shot } of screenshots) {
+    const existing = byPort.get(port);
+    byPort.set(port, existing
+      ? { ...existing, shot, url: shot.url || existing.url }
+      : { port, url: shot.url, shot });
+  }
+  const httpItems = [...byPort.values()].sort((a, b) => Number(a.port) - Number(b.port));
 
   return (
     <details className="host-details" open={open}>
@@ -91,25 +106,59 @@ export default function HostDetails({
           </Row>
         )}
 
-        {screenshots.length > 0 && (
-          <Row label={t('host.screenshots')}>
+        {httpItems.length > 0 && (
+          <Row label={t('host.http')}>
             <div className="host-screenshots">
-              {screenshots.map(({ key, port, shot }) => (
-                <a
-                  className="host-screenshot"
-                  href={screenshotUrl(shot.file)}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={t('host.screenshotOpen', { url: shot.url })}
-                  key={key}
-                >
-                  <img src={screenshotUrl(shot.file)} alt={shot.url} loading="lazy" />
-                  <span>
-                    <strong>:{port}</strong>
-                    {shot.title && <span>{shot.title}</span>}
-                    <code>{shot.url}</code>
-                  </span>
-                </a>
+              {httpItems.map(({ port, url, shot }) => (
+                <div className="host-http-entry" key={`${port}:${url || shot?.file}`}>
+                  {shot ? (
+                    <div className="host-screenshot">
+                      <a
+                        className="host-screenshot-image"
+                        href={screenshotUrl(shot.file)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={shot.title
+                          ? `${shot.title} · ${t('host.screenshotOpen', { url: shot.url })}`
+                          : t('host.screenshotOpen', { url: shot.url })}
+                      >
+                        <img src={screenshotUrl(shot.file)} alt={shot.url} loading="lazy" />
+                      </a>
+                      <span>
+                        <strong>:{port}</strong>
+                        {shot.title && <span>{shot.title}</span>}
+                        {url ? (
+                          <a
+                            className="host-screenshot-url"
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={t('host.httpOpen', { url })}
+                          >
+                            <code>{url}</code>
+                            <span aria-hidden="true">↗</span>
+                          </a>
+                        ) : (
+                          <code>{shot.url}</code>
+                        )}
+                      </span>
+                    </div>
+                  ) : (
+                    url && (
+                      <a
+                        className="host-http-link"
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={t('host.httpOpen', { url })}
+                      >
+                        <code>:{port}</code>
+                        <span>{url}</span>
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    )
+                  )}
+                </div>
               ))}
             </div>
           </Row>

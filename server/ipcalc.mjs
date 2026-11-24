@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { ValidationError } from './nmap.mjs';
+import { ValidationError } from './errors.mjs';
 
 const MAX_TARGET_LENGTH = 120;
 // Solo direcciones IPv4/IPv6 con prefijo opcional. Se rechaza cualquier cosa

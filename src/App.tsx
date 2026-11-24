@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
 import { AlertTriangle, Radar, RotateCcw, X } from 'lucide-react';
 import type { NmapScan } from './types';
-import { parseNmapXml } from './parser/nmapXml';
-import { forgetHostNotes, hostNotesKey, loadHostNotes, saveHostNotes } from './notes';
+import { currentAppSettings, pushSettings } from './settings';
 import { useI18n } from './i18n/I18nProvider';
 import { useScreenshots } from './screenshots';
 import RenameScan from './components/RenameScan';
@@ -13,7 +12,7 @@ export default function App() {
   const { t, locale, formatNumber, formatDateTime } = useI18n();
   const { refresh: refreshScreenshots } = useScreenshots();
   const [scan, setScan] = useState<NmapScan | null>(null);
-  const [hideWarning, setHideWarning] = useState(false);
+  const [hideWarning, setHideWarning] = useState(() => currentAppSettings()?.hideWarning ?? false);
   const [uploadKey, setUploadKey] = useState(0);
   const [viewKey, setViewKey] = useState(0);
   const [renamingScan, setRenamingScan] = useState(false);
@@ -29,39 +28,9 @@ export default function App() {
     setUploadKey((key) => key + 1);
   };
 
-  const loadXml = (xml: string, filename: string, extraWarnings: string[] = []) => {
-    const parsed = parseNmapXml(xml, filename, t);
-    const legacy = loadHostNotes();
-    const pendingMigration: Array<{ index: number; notes: string }> = [];
-
-    parsed.hosts = parsed.hosts.map((host, index) => {
-      const legacyNote = legacy[hostNotesKey(filename, host.key)];
-      if (!host.hasXmlNote && legacyNote) {
-        pendingMigration.push({ index, notes: legacyNote });
-        return { ...host, notes: legacyNote };
-      }
-      return host;
-    });
-
-    if (pendingMigration.length > 0) {
-      void Promise.all(
-        pendingMigration.map(({ index, notes }) =>
-          fetch('/api/scans/note', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: filename, index, notes }),
-          }),
-        ),
-      )
-        .then((responses) => {
-          if (responses.every((response) => response.ok)) forgetHostNotes([filename]);
-        })
-        .catch(() => {
-          // Si no se puede migrar, la nota sigue visible en esta sesión.
-        });
-    }
-
-    setScan({ ...parsed, warnings: [...extraWarnings, ...parsed.warnings] });
+  const loadScan = (loaded: NmapScan, extraWarnings: string[] = []) => {
+    const warnings = Array.from(new Set([...extraWarnings, ...(loaded.warnings ?? [])]));
+    setScan({ ...loaded, warnings });
     void refreshScreenshots();
     setHideWarning(false);
     setRenamingScan(false);
@@ -69,19 +38,7 @@ export default function App() {
   };
 
   const renameSavedScan = (name: string) => {
-    setScan((current) => {
-      if (!current || current.filename === name) return current;
-      const savedNotes = loadHostNotes();
-      current.hosts.forEach((host) => {
-        const oldKey = hostNotesKey(current.filename, host.key);
-        const value = savedNotes[oldKey];
-        if (value === undefined) return;
-        delete savedNotes[oldKey];
-        savedNotes[hostNotesKey(name, host.key)] = value;
-      });
-      saveHostNotes(savedNotes);
-      return { ...current, filename: name };
-    });
+    setScan((current) => (current ? { ...current, filename: name } : current));
   };
 
   const persistHostNote = (hostKey: string) => {
@@ -89,14 +46,17 @@ export default function App() {
     const notes = noteValues.current.get(hostKey);
     if (!current || notes === undefined) return;
     noteValues.current.delete(hostKey);
-    const index = Number(/^host-(\d+)$/.exec(hostKey)?.[1] ?? -1);
+    const index = current.hosts.findIndex((host) => host.key === hostKey);
     if (index < 0) return;
-    void fetch('/api/scans/note', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: current.filename, index, notes }),
-    }).catch(() => {
-      // El XML no se ha podido actualizar; la nota sigue en la vista actual.
+    void fetch(
+      `/api/hosts/${encodeURIComponent(current.filename)}/${index}/notes`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      },
+    ).catch(() => {
+      // La nota sigue visible en esta sesión aunque no se pueda guardar.
     });
   };
 
@@ -129,6 +89,11 @@ export default function App() {
         persistHostNote(hostKey);
       }, 500),
     );
+  };
+
+  const dismissWarning = () => {
+    setHideWarning(true);
+    void pushSettings({ hideWarning: true });
   };
 
   const openPorts = scan
@@ -189,7 +154,7 @@ export default function App() {
         <div className="warning-banner" role="status">
           <AlertTriangle size={15} />
           <span>{scan.warnings.join(' ')}</span>
-          <button className="icon-button" onClick={() => setHideWarning(true)} title={t('app.hideWarning')}>
+          <button className="icon-button" onClick={dismissWarning} title={t('app.hideWarning')}>
             <X size={14} />
           </button>
         </div>
@@ -203,12 +168,7 @@ export default function App() {
           onNotesCommit={flushHostNotes}
         />
       ) : (
-        <UploadView
-          key={uploadKey}
-          onLoad={loadXml}
-          onDeleteSaved={(name) => forgetHostNotes([name])}
-          onDeleteAllSaved={forgetHostNotes}
-        />
+        <UploadView key={uploadKey} onLoad={loadScan} />
       )}
     </div>
   );

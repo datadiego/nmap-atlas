@@ -1,10 +1,9 @@
 import { spawn } from 'node:child_process';
 import { accessSync, constants as fsConstants } from 'node:fs';
-import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
-
-const INDEX_NAME = 'atlas-screenshots.json';
+import { insertScreenshot } from '../db/repositories/screenshots.mjs';
 
 function splitCommand(value, fallback) {
   const parts = typeof value === 'string' ? value.trim().split(/\s+/) : value;
@@ -20,11 +19,7 @@ function isExecutable(file) {
   }
 }
 
-/**
- * fish añade ~/go/bin mediante `fish_user_paths`; solo existe en procesos
- * iniciados desde fish. Si el servidor se lanza desde bash o un lanzador,
- * buscamos también los destinos habituales de `go install`.
- */
+/** fish añade ~/go/bin mediante fish_user_paths; buscamos también los destinos habituales. */
 function gowitnessCommand(config) {
   const command = splitCommand(config.gowitnessCommand ?? process.env.NMAP_ATLAS_GOWITNESS_COMMAND, 'gowitness');
   const name = command[0];
@@ -33,34 +28,33 @@ function gowitnessCommand(config) {
     .split(path.delimiter)
     .some((dir) => isExecutable(path.join(dir, name)));
   if (inPath) return command;
-  const fallback = [
-    path.join(homedir(), 'go', 'bin', name),
-    path.join(homedir(), '.local', 'bin', name),
-    path.join('/usr/local/bin', name),
-  ].find(isExecutable);
+
+  // Con `sudo ./nmap-atlas`, HOME pasa a ser /root y PATH pierde ~/go/bin.
+  // SUDO_USER conserva la cuenta original, así que buscamos también en su HOME.
+  const homes = [homedir()];
+  const sudoUser = process.env.SUDO_USER;
+  if (sudoUser && /^[A-Za-z0-9._-]+$/.test(sudoUser)) {
+    homes.push(path.join('/home', sudoUser), path.join('/Users', sudoUser));
+  }
+  const fallback = [...new Set(homes)]
+    .flatMap((home) => [
+      path.join(home, 'go', 'bin', name),
+      path.join(home, '.local', 'bin', name),
+    ])
+    .concat(path.join('/usr/local/bin', name))
+    .find(isExecutable);
   return fallback ? [fallback, ...command.slice(1)] : command;
 }
 
+/** Solo se usa como dato informativo del estado; las imágenes viven en SQLite. */
 export function screenshotDir(config) {
-  return config.gowitnessDir ?? path.resolve(path.dirname(config.scansDir), 'screenshots');
-}
-
-export async function readScreenshotIndex(config) {
-  try {
-    const raw = await readFile(path.join(screenshotDir(config), INDEX_NAME), 'utf8');
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
+  return config.gowitnessDir ?? path.resolve(path.dirname(config.dbPath ?? config.scansDir ?? process.cwd()), 'screenshots');
 }
 
 /** Comprueba si gowitness está disponible y devuelve su versión. */
 export function getGowitnessVersion(config) {
   const command = gowitnessCommand(config);
   return new Promise((resolve) => {
-    // gowitness v3 responde a `version`, no a `--version` (este último solo
-    // imprime la ayuda). El banner incluye líneas como «v3, with <3 by...».
     const child = spawn(command[0], [...command.slice(1), 'version'], {
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -78,54 +72,41 @@ export function getGowitnessVersion(config) {
   });
 }
 
-async function countScreenshots(dir) {
-  try {
-    const files = await readdir(dir, { withFileTypes: true });
-    return files.filter(
-      (entry) => entry.isFile() && /\.(jpe?g|png)$/i.test(entry.name),
-    ).length;
-  } catch {
-    return 0;
-  }
-}
-
-function urlKey(value) {
+export function urlKey(value) {
   try {
     const url = new URL(value);
     const port = url.port || (url.protocol === 'https:' ? '443' : '80');
-    const hostname = url.hostname.replace(/^\[|\]$/g, '');
-    return `${hostname}:${port}`;
+    return `${url.hostname.replace(/^\[|\]$/g, '')}:${port}`;
   } catch {
     return null;
   }
 }
 
-async function writeIndex(dir, index) {
-  const file = path.join(dir, INDEX_NAME);
-  const temp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temp, JSON.stringify(index, null, 2), 'utf8');
-  await rename(temp, file);
+function mimeFor(file) {
+  const ext = path.extname(file).toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  return null;
 }
 
 /**
- * Pasa el XML guardado a gowitness para capturar solo servicios HTTP abiertos.
- * El JSONL de salida permite asociar cada captura con su IP:puerto. Devuelve
- * un aviso en español; nunca lanza errores hacia el escaneo principal.
+ * Ejecuta gowitness sobre el XML en un directorio temporal, importa las
+ * capturas correctas como BLOB a SQLite y borra todos los temporales.
  */
-export async function captureHttpScreenshots(xmlPath, config) {
+export async function captureHttpScreenshots(xml, config, db, scanId) {
   const command = gowitnessCommand(config);
-  const dir = screenshotDir(config);
   const timeoutMs = config.gowitnessTimeoutMs ?? 600_000;
-  const before = await countScreenshots(dir);
+  let dir;
   try {
-    await mkdir(dir, { recursive: true });
-    accessSync(dir, fsConstants.W_OK);
+    dir = await mkdtemp(path.join(tmpdir(), 'nmap-atlas-gw-'));
   } catch (error) {
-    return `gowitness no puede escribir en ${dir}: ${error.message}. Corrige el propietario con: sudo chown -R "$USER:$USER" "${dir}"`;
+    return `No se pudo crear el directorio temporal para capturas: ${error.message}`;
   }
 
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const jsonl = path.join(dir, `.gowitness-${stamp}.jsonl`);
+  const xmlPath = path.join(dir, 'scan.xml');
+  const jsonl = path.join(dir, 'results.jsonl');
+  await writeFile(xmlPath, xml, 'utf8');
+
   let child;
   try {
     child = spawn(
@@ -136,8 +117,7 @@ export async function captureHttpScreenshots(xmlPath, config) {
         '-f', xmlPath,
         '--screenshot-path', dir,
         '--open-only',
-        // `--service-contains http` está invertido en v3 (comprueba si
-        // "http" contiene el nombre de servicio), así que usamos la lista
+        // `--service-contains http` está invertido en v3; usamos la lista
         // explícita de servicios HTTP documentada por gowitness.
         ...['http', 'https', 'http-alt', 'https-alt', 'http-mgmt', 'http-proxy', 'www', 'www-http']
           .flatMap((service) => ['--service', service]),
@@ -147,6 +127,7 @@ export async function captureHttpScreenshots(xmlPath, config) {
       { shell: false, cwd: config.cwd, stdio: ['ignore', 'pipe', 'pipe'] },
     );
   } catch (error) {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
     return `No se pudo iniciar gowitness: ${error.message}`;
   }
 
@@ -174,13 +155,12 @@ export async function captureHttpScreenshots(xmlPath, config) {
   let captured = 0;
   if (!exit.error && exit.code === 0) {
     try {
-      const index = await readScreenshotIndex(config);
       const lines = (await readFile(jsonl, 'utf8')).split('\n').filter(Boolean);
+      const shots = new Map();
       for (const line of lines) {
         let result;
         try { result = JSON.parse(line); } catch { continue; }
-        // Solo contamos como captura realizada una respuesta HTTP correcta;
-        // las páginas de error no deben activar el filtro «Solo con capturas».
+        // Las páginas de error no activan el filtro «Solo con capturas».
         const ok = result.response_code >= 200 && result.response_code < 400;
         if (!result.file_name || result.failed || !ok) continue;
         const key = urlKey(result.url ?? result.final_url);
@@ -192,27 +172,39 @@ export async function captureHttpScreenshots(xmlPath, config) {
           title: result.title ?? '',
           code: result.response_code,
         };
-        // gowitness prueba http y https para el mismo puerto: si ambas funcionan,
-        // nos quedamos con http.
+        // gowitness prueba http y https: si ambas funcionan, nos quedamos con http.
         const score = (entry) => (entry.url.startsWith('http://') ? 1 : 0);
-        captured += 1;
-        if (!index[key] || score(shot) > score(index[key])) index[key] = shot;
+        if (!shots.has(key) || score(shot) > score(shots.get(key))) shots.set(key, shot);
       }
-      await writeIndex(dir, index);
+      for (const [key, shot] of shots) {
+        const mime = mimeFor(shot.file);
+        if (!mime) continue;
+        const data = await readFile(path.join(dir, shot.file));
+        insertScreenshot(db, {
+          scanId,
+          cacheKey: key,
+          data,
+          mime,
+          originalFile: shot.file,
+          url: shot.url,
+          title: shot.title,
+          code: shot.code,
+        });
+        captured += 1;
+      }
     } catch {
-      // Si no hay JSONL (versiones antiguas), seguimos contando los archivos.
-      captured = Math.max(0, (await countScreenshots(dir)) - before);
+      // Sin JSONL no podemos asociar las imágenes con hosts; no importamos nada.
     }
   }
-  await unlink(jsonl).catch(() => {});
 
+  await rm(dir, { recursive: true, force: true }).catch(() => {});
   if (exit.error) return `No se pudo ejecutar gowitness: ${exit.error.message}`;
   const detail = output.trim().split('\n').slice(-2).join(' ').slice(0, 200);
   if (/permission denied|eacces/i.test(detail)) {
-    return `gowitness no puede escribir en ${dir}. Corrige el propietario con: sudo chown -R "$USER:$USER" "${dir}"`;
+    return `gowitness no puede capturar pantallas. Detalle: ${detail}`;
   }
   if (exit.code !== 0) {
     return `gowitness terminó con código ${exit.code} y no se pudieron capturar pantallas. ${detail}`.trim();
   }
-  return `Capturas de servicios HTTP guardadas en ${dir} (${captured} nuevas).`;
+  return `Capturas de servicios HTTP guardadas en la base de datos (${captured} nuevas).`;
 }

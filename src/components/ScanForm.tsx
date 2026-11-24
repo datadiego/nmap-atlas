@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Calculator, LoaderCircle, Play, Terminal, X } from 'lucide-react';
-import type { ApiStatus, ScanResult } from '../types';
+import type { ApiStatus, NmapScan, ScanResult } from '../types';
 import { playSuccessSound } from '../audio';
 import { useI18n } from '../i18n/I18nProvider';
 import type { TranslationKey } from '../i18n';
@@ -16,7 +16,7 @@ import IpcCalcPanel from './IpcCalcPanel';
 
 interface Props {
   status: ApiStatus | null | undefined;
-  onLoad: (xml: string, filename: string, warnings?: string[]) => void;
+  onLoad: (scan: NmapScan, warnings?: string[]) => void;
 }
 
 interface ScanProgress {
@@ -706,7 +706,7 @@ export default function ScanForm({ status, onLoad }: Props) {
         body: JSON.stringify({ id: scanId }),
       });
     } catch {
-      // El escaneo termina igual; el aviso llegará en el XML resultante.
+      // El escaneo termina igual; el aviso llega en stderr/JSON.
     }
   };
 
@@ -749,7 +749,8 @@ export default function ScanForm({ status, onLoad }: Props) {
       });
       if (!response.ok) throw new Error(await apiError(response));
       const result = (await response.json()) as ScanResult;
-      const warnings: string[] = [];
+      if (!result.scan) throw new Error(t('scan.runError'));
+      const warnings: string[] = [...(result.scan.warnings ?? [])];
       // El stderr del servidor está en español: las regex no deben traducirse.
       if (/Escaneo detenido tras/.test(result.stderr)) {
         warnings.push(t('scan.warningTimeout'));
@@ -761,7 +762,7 @@ export default function ScanForm({ status, onLoad }: Props) {
       if (gowitness && result.gowitness) {
         warnings.push(t('scan.gowitnessResult', { message: result.gowitness }));
       }
-      onLoad(result.xml, result.savedAs ?? `nmap ${target}.xml`, warnings);
+      onLoad(result.scan, warnings);
       playSuccessSound();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('scan.runError'));
@@ -774,7 +775,7 @@ export default function ScanForm({ status, onLoad }: Props) {
 
   const nmapReady = Boolean(status?.nmapAvailable);
   const statusKey = nmapReady
-    ? `nmap:${status?.nmapVersion}:${status?.scansDir}:${status?.privileged}`
+    ? `nmap:${status?.nmapVersion}:${status?.dbPath ?? status?.scansDir}:${status?.privileged}`
     : status
       ? `no-nmap:${status.nmapCommand}`
       : 'no-api';
@@ -798,7 +799,7 @@ export default function ScanForm({ status, onLoad }: Props) {
               <span>
                 Nmap <strong>{status?.nmapVersion}</strong> {t('scan.detected')}
                 {status?.privileged && t('scan.privileged')}{t('scan.xmlSavedIn')}
-                <code>{status?.scansDir}</code>
+                <code>{status?.dbPath ?? status?.scansDir}</code>
               </span>
             </>
           ) : (

@@ -3,6 +3,7 @@ dist/
 nmap-atlas
 scans/
 screenshots/
+data/
 /casa.*
 *.tsbuildinfo
 *.local

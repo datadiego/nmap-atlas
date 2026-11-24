@@ -1,47 +1,60 @@
 const HOST_NOTES_KEY = 'nmap-atlas:host-notes';
+const MIGRATED_KEY = 'nmap-atlas:host-notes-migrated';
 
-export type HostNotes = Record<string, string>;
+interface LegacyNote {
+  name: string;
+  hostKey: string;
+  notes: string;
+}
 
-/** La clave incluye el archivo para no mezclar notas de escaneos distintos. */
-export const hostNotesKey = (filename: string, hostKey: string) =>
-  `${filename}\u0000${hostKey}`;
-
-export const loadHostNotes = (): HostNotes => {
+/**
+ * Heredado de la etapa en la que las notas vivían en localStorage. Se llama
+ * una sola vez al arrancar: las notas pasan a hosts.notes en SQLite y se
+ * eliminan del navegador. Si el servidor no responde, se reintenta en el
+ * siguiente arranque.
+ */
+export async function migrateLegacyNotes(): Promise<number> {
   try {
+    if (localStorage.getItem(MIGRATED_KEY)) return 0;
     const raw = localStorage.getItem(HOST_NOTES_KEY);
-    if (!raw) return {};
-    const saved = JSON.parse(raw) as HostNotes;
-    if (!saved || typeof saved !== 'object') return {};
-    return Object.fromEntries(
-      Object.entries(saved).filter(([, value]) => typeof value === 'string'),
-    ) as HostNotes;
-  } catch {
-    return {};
-  }
-};
+    if (!raw) {
+      localStorage.setItem(MIGRATED_KEY, '1');
+      return 0;
+    }
 
-export const saveHostNotes = (notes: HostNotes) => {
-  try {
-    const filled = Object.entries(notes).filter(([, value]) => value.trim());
-    if (filled.length === 0) {
+    const saved = JSON.parse(raw) as Record<string, unknown>;
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+      localStorage.setItem(MIGRATED_KEY, '1');
+      return 0;
+    }
+
+    const notes: LegacyNote[] = Object.entries(saved).flatMap(([key, value]) => {
+      const separator = key.indexOf('\u0000');
+      if (separator <= 0 || typeof value !== 'string' || !value.trim()) return [];
+      const name = key.slice(0, separator);
+      const hostKey = key.slice(separator + 1);
+      return name && hostKey ? [{ name, hostKey, notes: value }] : [];
+    });
+
+    if (!notes.length) {
       localStorage.removeItem(HOST_NOTES_KEY);
-      return;
+      localStorage.setItem(MIGRATED_KEY, '1');
+      return 0;
     }
-    localStorage.setItem(HOST_NOTES_KEY, JSON.stringify(Object.fromEntries(filled)));
-  } catch {
-    // Sin almacenamiento disponible, las notas se conservan solo en esta sesión.
-  }
-};
 
-export const forgetHostNotes = (filenames: string[]) => {
-  if (filenames.length === 0) return;
-  const saved = loadHostNotes();
-  let changed = false;
-  Object.keys(saved).forEach((key) => {
-    if (filenames.some((filename) => key.startsWith(`${filename}\u0000`))) {
-      delete saved[key];
-      changed = true;
-    }
-  });
-  if (changed) saveHostNotes(saved);
-};
+    const response = await fetch('/api/notes/migrate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }),
+    });
+    if (!response.ok) return 0;
+
+    const data = (await response.json().catch(() => ({}))) as { migrated?: number };
+    localStorage.removeItem(HOST_NOTES_KEY);
+    localStorage.setItem(MIGRATED_KEY, '1');
+    return Number(data.migrated ?? 0);
+  } catch {
+    // Sin localStorage o sin servidor: no marcamos la migración como hecha.
+    return 0;
+  }
+}
