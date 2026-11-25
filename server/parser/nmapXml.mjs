@@ -1,4 +1,5 @@
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
+import { byteLength } from '../../core/fs.mjs';
 import { ValidationError } from '../errors.mjs';
 
 /**
@@ -352,7 +353,7 @@ export function parseNmapXml(xml, filename = '') {
     hosts: asArray(root.host).map(parseHost),
     runStats: parseRunStats(root),
     filename,
-    rawSize: Buffer.byteLength(xml, 'utf8'),
+    rawSize: byteLength(xml),
     warnings,
   };
 }

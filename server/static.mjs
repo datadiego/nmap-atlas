@@ -1,5 +1,5 @@
-import { readFile, stat } from 'node:fs/promises';
-import path from 'node:path';
+import { isDirectory, readBytes } from '../core/fs.mjs';
+import { extname, join, resolve, sep } from '../core/path.mjs';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -16,6 +16,8 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
+const INDEX = '<!doctype html><html><body>No encontrado. Ejecuta `bun run build` antes de iniciar el servidor.</body></html>';
+
 /** Middleware final: sirve dist/ y devuelve index.html para rutas de SPA. */
 export async function serveStatic(c, distDir) {
   let requested;
@@ -25,25 +27,21 @@ export async function serveStatic(c, distDir) {
     return new Response('Ruta no válida', { status: 400 });
   }
 
-  const root = path.resolve(distDir);
-  let target = path.resolve(root, `.${requested}`);
-  if (target !== root && !target.startsWith(root + path.sep)) {
+  const root = resolve(distDir);
+  let target = resolve(root, `.${requested}`);
+  if (target !== root && !target.startsWith(root + sep)) {
     return new Response('Acceso denegado', { status: 403 });
   }
 
-  try {
-    const info = await stat(target);
-    if (info.isDirectory()) target = path.join(target, 'index.html');
-  } catch {
-    target = path.join(root, 'index.html');
-  }
+  if (await isDirectory(target)) target = join(target, 'index.html');
+  else if (!(await Bun.file(target).exists())) target = join(root, 'index.html');
 
   try {
-    const body = await readFile(target);
+    const body = await readBytes(target);
     return new Response(body, {
-      headers: { 'Content-Type': MIME[path.extname(target).toLowerCase()] ?? 'application/octet-stream' },
+      headers: { 'Content-Type': MIME[extname(target).toLowerCase()] ?? 'application/octet-stream' },
     });
   } catch {
-    return new Response('No encontrado. Ejecuta `npm run build` antes de iniciar el servidor.', { status: 404 });
+    return new Response(INDEX, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
   }
 }

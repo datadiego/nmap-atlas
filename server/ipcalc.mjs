@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { readStream } from '../core/process.mjs';
 import { ValidationError } from './errors.mjs';
 
 const MAX_TARGET_LENGTH = 120;
@@ -24,6 +24,22 @@ function ipcalcCommand(config) {
   return config.ipcalcCommand ?? 'ipcalc';
 }
 
+async function run(args, config) {
+  const proc = Bun.spawn([ipcalcCommand(config), ...args], {
+    stdin: 'ignore',
+    stdout: 'pipe',
+    stderr: 'pipe',
+    cwd: config.cwd,
+  });
+  let out = '';
+  let err = '';
+  await Promise.all([
+    readStream(proc.stdout, (chunk) => { out += chunk; }),
+    readStream(proc.stderr, (chunk) => { err += chunk; }),
+  ]);
+  return { out, err, code: await proc.exited };
+}
+
 export function validateTarget(raw) {
   if (typeof raw !== 'string') throw new ValidationError('La dirección debe ser texto.');
   const target = raw.trim();
@@ -38,52 +54,30 @@ export function validateTarget(raw) {
 }
 
 export async function getIpcCalcVersion(config) {
-  return new Promise((resolve) => {
-    const child = spawn(ipcalcCommand(config), ['--version'], {
-      shell: false,
-      cwd: config.cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let output = '';
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => { output += chunk; });
-    child.stderr.on('data', (chunk) => { output += chunk; });
-    child.on('error', () => resolve(null));
-    child.on('close', () => {
-      const match = /ipcalc\s+([^\s]+)/i.exec(output);
-      resolve(match ? match[1] : null);
-    });
-  });
+  try {
+    const { out } = await run(['--version'], config);
+    const match = /ipcalc\s+([^\s]+)/i.exec(out);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function calculateRange(raw, config) {
   const target = validateTarget(raw);
 
-  const stdout = await new Promise((resolve, reject) => {
-    const child = spawn(ipcalcCommand(config), ['--format=json', target], {
-      shell: false,
-      cwd: config.cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let out = '';
-    let err = '';
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => { out += chunk; });
-    child.stderr.on('data', (chunk) => { err += chunk; });
-    child.on('error', () =>
-      reject(new ValidationError('No se pudo ejecutar ipcalc. ¿Está instalado y en el PATH?')),
-    );
-    child.on('close', (code) => {
-      if (code !== 0) {
-        const detail = err.trim().split('\n')[0].slice(0, 300) || `ipcalc salió con código ${code}`;
-        reject(new ValidationError(detail));
-        return;
-      }
-      resolve(out);
-    });
-  });
+  let stdout;
+  try {
+    const result = await run(['--format=json', target], config);
+    if (result.code !== 0) {
+      const detail = result.err.trim().split('\n')[0].slice(0, 300) || `ipcalc salió con código ${result.code}`;
+      throw new ValidationError(detail);
+    }
+    stdout = result.out;
+  } catch (error) {
+    if (error instanceof ValidationError) throw error;
+    throw new ValidationError('No se pudo ejecutar ipcalc. ¿Está instalado y en el PATH?');
+  }
 
   let data;
   try {

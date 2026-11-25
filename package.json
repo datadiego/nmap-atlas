@@ -7,17 +7,16 @@
     "nmap-atlas": "bin/nmap-atlas.mjs"
   },
   "scripts": {
-    "dev": "vite --host",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview --host",
-    "start": "npm run build && node bin/nmap-atlas.mjs",
-    "serve": "node bin/nmap-atlas.mjs",
-    "cli": "node bin/nmap-atlas.mjs",
-    "binary": "npm run build && bun build bin/nmap-atlas.mjs --compile --asset ./dist --asset ./db --asset-naming \"[name].[ext]\" --outfile nmap-atlas"
+    "dev": "bunx vite --host",
+    "build": "bunx tsc -b && bunx vite build",
+    "preview": "bunx vite preview --host",
+    "start": "bun run build && bun bin/nmap-atlas.mjs",
+    "serve": "bun bin/nmap-atlas.mjs",
+    "cli": "bun bin/nmap-atlas.mjs",
+    "binary": "bun run build && bun build bin/nmap-atlas.mjs --compile --asset ./dist --asset ./db --asset-naming \"[name].[ext]\" --outfile nmap-atlas"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.4",
-    "@hono/node-server": "^2.1.11",
     "@xyflow/react": "^12.3.0",
     "fast-xml-parser": "^5.12.1",
     "hono": "^4.13.21",

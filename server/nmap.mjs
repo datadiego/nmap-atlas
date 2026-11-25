@@ -1,7 +1,6 @@
-import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { byteLength, makeTempDir, readText, removeDir } from '../core/fs.mjs';
+import { captureOutput, readStream } from '../core/process.mjs';
+import { join } from '../core/path.mjs';
 import { getByName, saveParsed } from '../db/repositories/scans.mjs';
 import { updateProgress } from '../db/repositories/jobs.mjs';
 import { captureHttpScreenshots } from './gowitness.mjs';
@@ -388,20 +387,13 @@ function nmapInvocation(config) {
 
 export async function getNmapVersion(config) {
   const command = nmapInvocation(config);
-  return new Promise((resolve) => {
-    const child = spawn(command[0], [...command.slice(1), '--version'], {
-      shell: false,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let output = '';
-    child.stdout.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => { output += chunk; });
-    child.on('error', () => resolve(null));
-    child.on('close', () => {
-      const match = /^Nmap version ([^\s]+)/m.exec(output);
-      resolve(match ? match[1] : null);
-    });
-  });
+  try {
+    const { output } = await captureOutput([...command, '--version'], { cwd: config.cwd });
+    const match = /^Nmap version ([^\s]+)/m.exec(output);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 function scanName(target) {
@@ -419,7 +411,7 @@ export function cancelScan(rawId, activeScans) {
   const entry = activeScans.get(rawId);
   if (!entry || entry.child.exitCode !== null || entry.child.signalCode !== null) return false;
   entry.note('Escaneo cancelado por el usuario.');
-  entry.child.kill('SIGTERM');
+  entry.child.kill();
   return true;
 }
 
@@ -428,7 +420,7 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
   const command = nmapInvocation(config);
   // La salida "normal" (-oN) se captura en un temporal: nunca sustituye al XML
   // en SQLite, que sigue siendo la única fuente de verdad.
-  const normalDir = await mkdtemp(join(tmpdir(), 'nmap-atlas-normal-'));
+  const normalDir = await makeTempDir('nmap-atlas-normal-');
   const normalPath = join(normalDir, 'nmap.nmap');
   let normalText = '';
   try {
@@ -445,10 +437,11 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
   const started = Date.now();
 
   const result = await new Promise((resolve, reject) => {
-    const child = spawn(command[0], [...command.slice(1), ...nmapArgs], {
-      shell: false,
+    const child = Bun.spawn([...command, ...nmapArgs], {
+      stdin: 'ignore',
+      stdout: 'pipe',
+      stderr: 'pipe',
       cwd: config.cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
@@ -488,11 +481,9 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
     };
     addLog(`Escaneando ${target}`);
 
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => {
+    const stdoutStream = readStream(child.stdout, (chunk) => {
       stdout += chunk;
-      stats.bytes += Buffer.byteLength(chunk);
+      stats.bytes += byteLength(chunk);
 
       // Solo contamos etiquetas completas; las que quedan partidas se unen
       // con el siguiente chunk para no perder ni duplicar hosts.
@@ -565,7 +556,7 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
       }
       stats.queued = discovered.length;
     });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    const stderrStream = readStream(child.stderr, (chunk) => { stderr += chunk; });
 
     const note = (message) => {
       stderr += `\n${message}`;
@@ -585,7 +576,7 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
 
     const timer = setTimeout(() => {
       note(`Escaneo detenido tras ${timeoutMs} ms (--timeout).`);
-      child.kill('SIGTERM');
+      child.kill();
     }, timeoutMs);
 
     const finish = (error, value) => {
@@ -598,12 +589,20 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
       else resolve(value);
     };
 
-    child.on('error', (error) =>
-      finish(new Error('No se pudo ejecutar nmap. ¿Está instalado y en el PATH? ' + error.message)),
-    );
-    child.on('close', (code, signal) =>
-      finish(null, { stdout, stderr, code, signal }),
-    );
+    void (async () => {
+      let error = null;
+      try {
+        await child.exited;
+      } catch (cause) {
+        error = cause;
+      }
+      await Promise.all([stdoutStream, stderrStream]);
+      if (error) {
+        finish(new Error('No se pudo ejecutar nmap. ¿Está instalado y en el PATH? ' + error.message));
+      } else {
+        finish(null, { stdout, stderr, code: child.exitCode, signal: child.signalCode });
+      }
+    })();
   });
 
   if (!result.stdout.includes('<nmaprun')) {
@@ -615,7 +614,7 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
   }
 
   try {
-    normalText = await readFile(normalPath, 'utf8');
+    normalText = await readText(normalPath);
   } catch {
     // Un escaneo cancelado antes del primer host puede no escribir Salida normal.
   }
@@ -637,7 +636,7 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
       hosts: [],
       runStats: null,
       filename: '',
-      rawSize: Buffer.byteLength(result.stdout, 'utf8'),
+      rawSize: byteLength(result.stdout),
       warnings: [error instanceof Error ? error.message : String(error)],
     };
   }
@@ -694,6 +693,6 @@ export async function runNmap(payload, config, db, activeScans = new Map()) {
     timeoutMs,
   };
   } finally {
-    await rm(normalDir, { recursive: true, force: true });
+    removeDir(normalDir);
   }
 }

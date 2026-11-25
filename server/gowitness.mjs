@@ -1,8 +1,13 @@
-import { spawn } from 'node:child_process';
-import { accessSync, constants as fsConstants } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
-import path from 'node:path';
+import {
+  isExecutable,
+  makeTempDir,
+  readBytes,
+  readText,
+  removeDir,
+  writeText,
+} from '../core/fs.mjs';
+import { captureOutput, readStream } from '../core/process.mjs';
+import { basename, currentDir, dirname, extname, join } from '../core/path.mjs';
 import { insertScreenshot } from '../db/repositories/screenshots.mjs';
 
 function splitCommand(value, fallback) {
@@ -10,66 +15,50 @@ function splitCommand(value, fallback) {
   return Array.isArray(parts) && parts.length ? parts : [fallback];
 }
 
-function isExecutable(file) {
-  try {
-    accessSync(file, fsConstants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** fish añade ~/go/bin mediante fish_user_paths; buscamos también los destinos habituales. */
-function gowitnessCommand(config) {
-  const command = splitCommand(config.gowitnessCommand ?? process.env.NMAP_ATLAS_GOWITNESS_COMMAND, 'gowitness');
+async function gowitnessCommand(config) {
+  const command = splitCommand(config.gowitnessCommand ?? Bun.env.NMAP_ATLAS_GOWITNESS_COMMAND, 'gowitness');
   const name = command[0];
   if (name.includes('/') || name.includes('\\')) return command;
-  const inPath = (process.env.PATH ?? '')
-    .split(path.delimiter)
-    .some((dir) => isExecutable(path.join(dir, name)));
-  if (inPath) return command;
+  let inPathFound = false;
+  for (const dir of (Bun.env.PATH ?? '').split(':')) {
+    if (await isExecutable(join(dir, name))) { inPathFound = true; break; }
+  }
+  if (inPathFound) return command;
 
   // Con `sudo ./nmap-atlas`, HOME pasa a ser /root y PATH pierde ~/go/bin.
   // SUDO_USER conserva la cuenta original, así que buscamos también en su HOME.
-  const homes = [homedir()];
-  const sudoUser = process.env.SUDO_USER;
+  const sudoUser = Bun.env.SUDO_USER;
+  const homes = [Bun.env.HOME ?? ''];
   if (sudoUser && /^[A-Za-z0-9._-]+$/.test(sudoUser)) {
-    homes.push(path.join('/home', sudoUser), path.join('/Users', sudoUser));
+    homes.push(join('/home', sudoUser), join('/Users', sudoUser));
   }
-  const fallback = [...new Set(homes)]
+  const candidates = [...new Set(homes.filter(Boolean))]
     .flatMap((home) => [
-      path.join(home, 'go', 'bin', name),
-      path.join(home, '.local', 'bin', name),
+      join(home, 'go', 'bin', name),
+      join(home, '.local', 'bin', name),
     ])
-    .concat(path.join('/usr/local/bin', name))
-    .find(isExecutable);
-  return fallback ? [fallback, ...command.slice(1)] : command;
+    .concat(join('/usr/local/bin', name));
+  for (const candidate of candidates) {
+    if (await isExecutable(candidate)) return [candidate, ...command.slice(1)];
+  }
+  return command;
 }
 
 /** Solo se usa como dato informativo del estado; las imágenes viven en SQLite. */
 export function screenshotDir(config) {
-  return path.dirname(config.dbPath ?? process.cwd());
+  return dirname(config.dbPath ?? currentDir());
 }
 
 /** Comprueba si gowitness está disponible y devuelve su versión. */
-export function getGowitnessVersion(config) {
-  const command = gowitnessCommand(config);
-  return new Promise((resolve) => {
-    const child = spawn(command[0], [...command.slice(1), 'version'], {
-      shell: false,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let output = '';
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => { output += chunk; });
-    child.stderr.on('data', (chunk) => { output += chunk; });
-    child.on('error', () => resolve(null));
-    child.on('close', () => {
-      const match = /(?:^|\s)v(\d+(?:\.\d+)*)/i.exec(output);
-      resolve(match ? match[1] : output.trim() ? 'instalado' : null);
-    });
-  });
+export async function getGowitnessVersion(config) {
+  try {
+    const command = await gowitnessCommand(config);
+    const { output } = await captureOutput([...command, 'version'], { cwd: config.cwd });
+    const match = /(?:^|\s)v(\d+(?:\.\d+)*)/i.exec(output);
+    return match ? match[1] : output.trim() ? 'instalado' : null;
+  } catch {
+    return null;
+  }
 }
 
 export function urlKey(value) {
@@ -83,7 +72,7 @@ export function urlKey(value) {
 }
 
 function mimeFor(file) {
-  const ext = path.extname(file).toLowerCase();
+  const ext = extname(file).toLowerCase();
   if (ext === '.png') return 'image/png';
   if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
   return null;
@@ -94,25 +83,19 @@ function mimeFor(file) {
  * capturas correctas como BLOB a SQLite y borra todos los temporales.
  */
 export async function captureHttpScreenshots(xml, config, db, scanId) {
-  const command = gowitnessCommand(config);
+  const command = await gowitnessCommand(config);
   const timeoutMs = config.gowitnessTimeoutMs ?? 600_000;
-  let dir;
-  try {
-    dir = await mkdtemp(path.join(tmpdir(), 'nmap-atlas-gw-'));
-  } catch (error) {
-    return `No se pudo crear el directorio temporal para capturas: ${error.message}`;
-  }
+  const dir = await makeTempDir('nmap-atlas-gw-');
 
-  const xmlPath = path.join(dir, 'scan.xml');
-  const jsonl = path.join(dir, 'results.jsonl');
-  await writeFile(xmlPath, xml, 'utf8');
+  const xmlPath = join(dir, 'scan.xml');
+  const jsonl = join(dir, 'results.jsonl');
+  await writeText(xmlPath, xml);
 
   let child;
   try {
-    child = spawn(
-      command[0],
+    child = Bun.spawn(
       [
-        ...command.slice(1),
+        ...command,
         'scan', 'nmap',
         '-f', xmlPath,
         '--screenshot-path', dir,
@@ -127,38 +110,40 @@ export async function captureHttpScreenshots(xml, config, db, scanId) {
         '--write-jsonl',
         '--write-jsonl-file', jsonl,
       ],
-      { shell: false, cwd: config.cwd, stdio: ['ignore', 'pipe', 'pipe'] },
+      { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe', cwd: config.cwd },
     );
   } catch (error) {
-    await rm(dir, { recursive: true, force: true }).catch(() => {});
+    removeDir(dir);
     return `No se pudo iniciar gowitness: ${error.message}`;
   }
 
   let output = '';
-  child.stdout.setEncoding('utf8');
-  child.stderr.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => { output += chunk; });
-  child.stderr.on('data', (chunk) => { output += chunk; });
+  const streams = Promise.all([
+    readStream(child.stdout, (chunk) => { output += chunk; }),
+    readStream(child.stderr, (chunk) => { output += chunk; }),
+  ]);
 
-  const exit = await new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      child.kill('SIGTERM');
-      output += `\nCapturas detenidas tras ${timeoutMs} ms.`;
-    }, timeoutMs);
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      resolve({ error });
-    });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      resolve({ code });
-    });
-  }).catch((error) => ({ error }));
+  const timer = setTimeout(() => {
+    child.kill();
+    output += `\nCapturas detenidas tras ${timeoutMs} ms.`;
+  }, timeoutMs);
+
+  let signalCode = null;
+  let spawnError = null;
+  try {
+    await child.exited;
+  } catch (error) {
+    spawnError = error;
+  } finally {
+    clearTimeout(timer);
+    signalCode = child.signalCode;
+    await streams;
+  }
 
   let captured = 0;
-  if (!exit.error && exit.code === 0) {
+  if (!spawnError && child.exitCode === 0) {
     try {
-      const lines = (await readFile(jsonl, 'utf8')).split('\n').filter(Boolean);
+      const lines = (await readText(jsonl)).split('\n').filter(Boolean);
       const shots = new Map();
       for (const line of lines) {
         let result;
@@ -170,7 +155,7 @@ export async function captureHttpScreenshots(xml, config, db, scanId) {
         if (!key) continue;
         const url = result.url ?? result.final_url ?? '';
         const shot = {
-          file: path.basename(result.file_name),
+          file: basename(result.file_name),
           url,
           title: result.title ?? '',
           code: result.response_code,
@@ -182,7 +167,7 @@ export async function captureHttpScreenshots(xml, config, db, scanId) {
       for (const [key, shot] of shots) {
         const mime = mimeFor(shot.file);
         if (!mime) continue;
-        const data = await readFile(path.join(dir, shot.file));
+        const data = await readBytes(join(dir, shot.file));
         insertScreenshot(db, {
           scanId,
           cacheKey: key,
@@ -200,14 +185,15 @@ export async function captureHttpScreenshots(xml, config, db, scanId) {
     }
   }
 
-  await rm(dir, { recursive: true, force: true }).catch(() => {});
-  if (exit.error) return `No se pudo ejecutar gowitness: ${exit.error.message}`;
+  removeDir(dir);
+  if (spawnError) return `No se pudo ejecutar gowitness: ${spawnError.message}`;
   const detail = output.trim().split('\n').slice(-2).join(' ').slice(0, 200);
   if (/permission denied|eacces/i.test(detail)) {
     return `gowitness no puede capturar pantallas. Detalle: ${detail}`;
   }
-  if (exit.code !== 0) {
-    return `gowitness terminó con código ${exit.code} y no se pudieron capturar pantallas. ${detail}`.trim();
+  if (child.exitCode !== 0) {
+    const code = signalCode ? `señal ${signalCode}` : `código ${child.exitCode}`;
+    return `gowitness terminó con ${code} y no se pudieron capturar pantallas. ${detail}`.trim();
   }
   return `Capturas de servicios HTTP guardadas en la base de datos (${captured} nuevas).`;
 }

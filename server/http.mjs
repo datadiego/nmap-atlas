@@ -1,10 +1,11 @@
+import { byteLength } from '../core/fs.mjs';
 import { ValidationError } from './errors.mjs';
 
 const MAX_BODY = 8 * 1024 * 1024;
 
 export async function readJson(c) {
   const text = await c.req.text();
-  if (Buffer.byteLength(text, 'utf8') > MAX_BODY) {
+  if (byteLength(text) > MAX_BODY) {
     throw new ValidationError('La petición es demasiado grande.');
   }
   if (!text.trim()) return {};

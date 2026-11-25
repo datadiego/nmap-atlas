@@ -1,14 +1,15 @@
-#!/usr/bin/env node
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-import process from 'node:process';
+#!/usr/bin/env bun
 import { createApp } from '../server/app.mjs';
 import { initializeDatabase } from '../db/migrate.mjs';
+import { currentDir, join, resolve } from '../core/path.mjs';
 
-const standalone = Boolean(globalThis.Bun?.isStandaloneExecutable);
-const embeddedDir = standalone ? (import.meta.dir ?? process.cwd()) : null;
-const embeddedDist = embeddedDir ? path.join(embeddedDir, 'dist') : null;
-const embeddedDb = embeddedDir ? path.join(embeddedDir, 'db') : null;
+const standalone = Boolean(Bun.isStandaloneExecutable);
+const embeddedDir = standalone ? import.meta.dir : null;
+// Los assets compilados viven en $bunfs, invisible para procesos externos como
+// `test`. Los detectamos comprobando archivos concretos con Bun.file.
+const hasAsset = (file) => Boolean(file) && Bun.file(file).exists();
+const embeddedDb = await hasAsset(embeddedDir ? join(embeddedDir, 'db', 'schema.sql') : null);
+const embeddedWeb = await hasAsset(embeddedDir ? join(embeddedDir, 'dist', 'index.html') : null);
 
 const HELP = `
 Nmap Atlas CLI
@@ -37,33 +38,31 @@ Ejemplos:
   nmap-atlas
   nmap-atlas --port 8080 --db-path ./data/otra.sqlite
   nmap-atlas --nmap-sudo
-  npx nmap-atlas --host 0.0.0.0
+  bunx nmap-atlas --host 0.0.0.0
 `;
 
 const config = {
   host: '127.0.0.1',
   port: 4173,
-  dbPath: process.env.NMAP_ATLAS_DB_PATH?.trim()
-    ? path.resolve(process.cwd(), process.env.NMAP_ATLAS_DB_PATH.trim())
-    : path.resolve(process.cwd(), 'data/nmap-atlas.sqlite'),
-  dbDir: embeddedDb && existsSync(embeddedDb) ? embeddedDb : path.resolve(process.cwd(), 'db'),
-  distDir: embeddedDist && existsSync(embeddedDist)
-    ? embeddedDist
-    : path.resolve(process.cwd(), 'dist'),
+  dbPath: Bun.env.NMAP_ATLAS_DB_PATH?.trim()
+    ? resolve(currentDir(), Bun.env.NMAP_ATLAS_DB_PATH.trim())
+    : resolve(currentDir(), 'data/nmap-atlas.sqlite'),
+  dbDir: embeddedDb ? join(embeddedDir, 'db') : resolve(currentDir(), 'db'),
+  distDir: embeddedWeb ? join(embeddedDir, 'dist') : resolve(currentDir(), 'dist'),
   timeoutMs: 1_800_000,
   hostTimeoutMs: null,
   save: true,
-  cwd: process.cwd(),
-  nmapCommand: (process.env.NMAP_ATLAS_NMAP_COMMAND ?? 'nmap').trim().split(/\s+/).filter(Boolean),
+  cwd: currentDir(),
+  nmapCommand: (Bun.env.NMAP_ATLAS_NMAP_COMMAND ?? 'nmap').trim().split(/\s+/).filter(Boolean),
   nmapPrivileged: ['1', 'true', 'yes'].includes(
-    (process.env.NMAP_ATLAS_NMAP_PRIVILEGED ?? '').trim().toLowerCase(),
+    (Bun.env.NMAP_ATLAS_NMAP_PRIVILEGED ?? '').trim().toLowerCase(),
   ),
-  nseScriptsDir: process.env.NMAP_ATLAS_NSE_SCRIPTS_DIR?.trim() || null,
-  ipcalcCommand: process.env.NMAP_ATLAS_IPCALC_COMMAND?.trim() || 'ipcalc',
-  gowitnessCommand: process.env.NMAP_ATLAS_GOWITNESS_COMMAND?.trim() || 'gowitness',
+  nseScriptsDir: Bun.env.NMAP_ATLAS_NSE_SCRIPTS_DIR?.trim() || null,
+  ipcalcCommand: Bun.env.NMAP_ATLAS_IPCALC_COMMAND?.trim() || 'ipcalc',
+  gowitnessCommand: Bun.env.NMAP_ATLAS_GOWITNESS_COMMAND?.trim() || 'gowitness',
 };
 
-const args = process.argv.slice(2);
+const args = Bun.argv.slice(2);
 for (let index = 0; index < args.length; index += 1) {
   const arg = args[index];
   const next = () => args[++index];
@@ -82,7 +81,7 @@ for (let index = 0; index < args.length; index += 1) {
       config.host = next();
       break;
     case '--db-path':
-      config.dbPath = path.resolve(process.cwd(), next());
+      config.dbPath = resolve(currentDir(), next());
       break;
     case '--timeout':
       config.timeoutMs = Number(next());
@@ -114,7 +113,7 @@ for (let index = 0; index < args.length; index += 1) {
     default:
       if (arg.startsWith('--port=')) config.port = Number(arg.slice(7));
       else if (arg.startsWith('--host=')) config.host = arg.slice(7);
-      else if (arg.startsWith('--db-path=')) config.dbPath = path.resolve(process.cwd(), arg.slice(10));
+      else if (arg.startsWith('--db-path=')) config.dbPath = resolve(currentDir(), arg.slice(10));
       else if (arg.startsWith('--timeout=')) config.timeoutMs = Number(arg.slice(10));
       else if (arg.startsWith('--host-timeout=')) config.hostTimeoutMs = Number(arg.slice(15));
       else if (arg.startsWith('--nmap-command=')) {
@@ -164,26 +163,15 @@ try {
 
 const activeScans = new Map();
 const app = createApp({ db, config, activeScans });
-let server;
-
-if (globalThis.Bun?.serve) {
-  server = Bun.serve({
-    port: config.port,
-    hostname: config.host,
-    fetch: app.fetch,
-  });
-} else {
-  const { serve } = await import('@hono/node-server');
-  server = serve({
-    port: config.port,
-    hostname: config.host,
-    fetch: app.fetch,
-  });
-}
+const server = Bun.serve({
+  port: config.port,
+  hostname: config.host,
+  fetch: app.fetch,
+});
 
 console.log(`Nmap Atlas → http://${config.host}:${config.port}`);
 console.log(`Base de datos: ${config.dbPath}`);
-console.log(`Vista web: ${embeddedDist ? 'incrustada en el binario' : config.distDir}`);
+console.log(`Vista web: ${embeddedWeb ? 'incrustada en el binario' : config.distDir}`);
 console.log(`nmap: ${config.nmapCommand.join(' ')}`);
 console.log(`ipcalc: ${config.ipcalcCommand}`);
 console.log(`gowitness: ${config.gowitnessCommand} → capturas en SQLite`);
@@ -192,8 +180,7 @@ console.log('Pulsa Ctrl+C para detener.');
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
-    try { server?.stop?.(); } catch { /* ya detenido */ }
-    try { server?.close?.(() => process.exit(0)); } catch { /* ya detenido */ }
+    try { server.stop(); } catch { /* ya detenido */ }
     try { db.close(); } catch { /* ya cerrada */ }
     setTimeout(() => process.exit(0), 200).unref?.();
   });

@@ -1,6 +1,5 @@
-import { readdir, readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { delimiter, dirname, join, resolve } from 'node:path';
+import { globFiles, readText } from '../../core/fs.mjs';
+import { basename, dirname, join, resolve } from '../../core/path.mjs';
 
 /**
  * Devuelve los scripts NSE que nmap tiene instalados. SQLite sigue siendo la
@@ -14,7 +13,7 @@ let cache = null;
 
 function withDelimiter(value) {
   return String(value ?? '')
-    .split(delimiter)
+    .split(':')
     .map((entry) => entry.trim())
     .filter(Boolean);
 }
@@ -23,7 +22,7 @@ function withDelimiter(value) {
 function scriptDirs(config) {
   const dirs = [
     ...withDelimiter(config?.nseScriptsDir),
-    ...withDelimiter(process.env.NMAP_ATLAS_NSE_SCRIPTS_DIR),
+    ...withDelimiter(Bun.env.NMAP_ATLAS_NSE_SCRIPTS_DIR),
   ];
 
   const command = Array.isArray(config?.nmapCommand) ? config.nmapCommand : ['nmap'];
@@ -33,17 +32,18 @@ function scriptDirs(config) {
     dirs.push(join(bin, '..', 'share', 'nmap', 'scripts'), join(bin, 'scripts'));
   }
 
+  const home = Bun.env.HOME ?? '';
   dirs.push(
     '/usr/share/nmap/scripts',
     '/usr/local/share/nmap/scripts',
     '/opt/homebrew/share/nmap/scripts',
     '/opt/local/share/nmap/scripts',
-    join(homedir(), '.nmap', 'scripts'),
+    home ? join(home, '.nmap', 'scripts') : null,
     'C:\\Program Files\\Nmap\\scripts',
     'C:\\Program Files (x86)\\Nmap\\scripts',
   );
 
-  return [...new Set(dirs.map((dir) => resolve(dir)))];
+  return [...new Set(dirs.filter(Boolean).map((dir) => resolve(dir)))];
 }
 
 function cleanDescription(value) {
@@ -68,14 +68,12 @@ function parseMetadata(source) {
 }
 
 async function readDirScripts(dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const files = entries
-    .filter((entry) => entry.isFile() && SCRIPT_FILE.test(entry.name))
-    .map((entry) => entry.name)
+  const files = globFiles(dir, '*.nse')
+    .filter((file) => SCRIPT_FILE.test(basename(file)))
     .sort((a, b) => a.localeCompare(b));
 
   return Promise.all(files.map(async (file) => {
-    const source = await readFile(join(dir, file), 'utf8').catch(() => '');
+    const source = await readText(join(dir, file)).catch(() => '');
     return {
       name: file.slice(0, -4),
       ...parseMetadata(source.slice(0, 12_000)),

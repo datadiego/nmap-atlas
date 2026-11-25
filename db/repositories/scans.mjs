@@ -1,3 +1,4 @@
+import { byteLength } from '../../core/fs.mjs';
 import { ValidationError } from '../../server/errors.mjs';
 import { stripAtlasNotes } from '../../server/parser/nmapXml.mjs';
 
@@ -242,7 +243,7 @@ export function saveParsed(db, options) {
       JSON.stringify(parsed.warnings ?? []),
       cleanXml,
       typeof rawText === 'string' ? rawText : '',
-      Buffer.byteLength(cleanXml, 'utf8'),
+      byteLength(cleanXml),
       now,
       now,
     );
