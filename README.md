@@ -14,7 +14,7 @@ Aplicación para lanzar escaneos con Nmap y explorarlos como grafo, árbol, list
 
 ## Requisitos
 
-- Node 22 o superior (usa `node:sqlite`) o Bun (usa `bun:sqlite`).
+- Bun 1.4 o superior (usa `bun:sqlite`, `Bun.serve`, `Bun.spawn` y `Bun.file`; no se usa Node).
 - `nmap` en el `PATH`.
 - `ipcalc` 1.2 o superior para el cálculo de rangos.
 - `gowitness` v3 opcional, para capturas de servicios HTTP.
@@ -22,13 +22,13 @@ Aplicación para lanzar escaneos con Nmap y explorarlos como grafo, árbol, list
 ## Uso
 
 ```sh
-npm install
-npm start                 # build + servidor en http://127.0.0.1:4173
-npm run binary            # genera el ejecutable ./nmap-atlas
+bun install
+bun start                 # build + servidor en http://127.0.0.1:4173
+bun run binary            # genera el ejecutable ./nmap-atlas
 ./nmap-atlas
 ```
 
-También puedes ejecutar el servidor sin recompilar con `npm run serve` (o `npm run cli`).
+También puedes ejecutar el servidor sin recompilar con `bun run serve` (o `bun run cli`). Para desarrollar la interfaz con recarga automática: `bun run dev`.
 
 ### Docker
 
