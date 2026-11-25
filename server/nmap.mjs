@@ -69,12 +69,13 @@ const ALLOWED_OPTIONS = new Set([
 ]);
 
 // Opciones con argumento editable: se valida el prefijo y el formato del valor.
+const SCRIPT_OPTION_PATTERN = /^--script=[A-Za-z0-9][A-Za-z0-9._-]*(?:,[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 const ALLOWED_OPTION_PATTERNS = [
   /^-sI[A-Za-z0-9._:-]{1,255}$/,
   /^-b(?:[A-Za-z0-9._-]+(?::[A-Za-z0-9._-]+)?@)?[A-Za-z0-9._-]+(?::\d{1,5})?$/,
   /^--scanflags=[A-Z]{1,64}$/,
   /^-P[SUA][A-Za-z0-9,.-]{1,80}$/,
-  /^--script=[A-Za-z0-9][A-Za-z0-9._-]*(?:,[A-Za-z0-9][A-Za-z0-9._-]*)*$/,
+  SCRIPT_OPTION_PATTERN,
 ];
 
 const ALLOWED_TIMINGS = new Set(['-T0', '-T1', '-T2', '-T3', '-T4', '-T5']);
@@ -239,7 +240,7 @@ function tokenizeCommand(raw) {
   );
 }
 
-function buildArgsFromCommand(raw, config) {
+function buildArgsFromCommand(raw, config, options = []) {
   const command = String(raw).trim();
   if (!command) throw new ValidationError('El comando está vacío.');
   if (command.length > MAX_COMMAND_LENGTH) {
@@ -251,6 +252,9 @@ function buildArgsFromCommand(raw, config) {
 
   const tokens = tokenizeCommand(command);
   const prefix = nmapCommand(config);
+  const selectedScripts = new Set(
+    validateOptions(options).filter((option) => option.startsWith('--script=')),
+  );
   if (tokens.slice(0, prefix.length).join(' ') !== prefix.join(' ')) {
     throw new ValidationError(`El comando debe empezar por «${prefix.join(' ')}».`);
   }
@@ -296,6 +300,16 @@ function buildArgsFromCommand(raw, config) {
         continue;
       }
 
+      // El selector de NSE genera '--script=...' también en el comando mostrado;
+      // se acepta solo si es exactamente el flag enviado en 'options'.
+      if (name === '--script') {
+        if (!SCRIPT_OPTION_PATTERN.test(token) || !selectedScripts.has(token)) {
+          throw new ValidationError(`Flag no permitido: ${name}. No se pueden cambiar la salida, los scripts ni los archivos de entrada.`);
+        }
+        flags.push(token);
+        continue;
+      }
+
       if (BLOCKED_FLAG_PREFIXES.some((blocked) => name.startsWith(blocked))) {
         throw new ValidationError(`Flag no permitido: ${name}. No se pueden cambiar la salida, los scripts ni los archivos de entrada.`);
       }
@@ -327,7 +341,7 @@ function buildArgsFromCommand(raw, config) {
 
 export function buildArgs(payload, config) {
   if (payload.command != null && String(payload.command).trim()) {
-    return buildArgsFromCommand(payload.command, config);
+    return buildArgsFromCommand(payload.command, config, payload.options);
   }
 
   const target = validateTarget(payload.target);

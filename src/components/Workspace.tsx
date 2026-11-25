@@ -439,74 +439,75 @@ function WorkspaceInner({ scan, onNotesChange, onNotesCommit }: Props) {
           <RawView name={scan.filename} />
         ) : (
           <div className="graph-area">
-            <ReactFlow
-              nodes={view?.nodes ?? []}
-              edges={view?.edges ?? []}
-              onNodesChange={onNodesChange}
-              nodeTypes={nodeTypes}
-              onNodeClick={(_, node) => {
-                if (node.data.entity.type !== 'host') return;
-                if (activeHost === node.id) {
-                  closeCard();
-                } else {
-                  // Abrimos la ficha a la derecha sin mover el mapa: el overview
-                  // sigue donde está y el host se marca como activo.
-                  setShowAllPorts(false);
-                  setActiveHost(node.id);
-                }
-              }}
-              nodesConnectable={false}
-              nodesDraggable
-              colorMode={theme === 'light' ? 'light' : 'dark'}
-              fitView
-              fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
-              minZoom={0.03}
-              maxZoom={2}
-              proOptions={{ hideAttribution: false }}
-            >
-              <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--surface-2)" />
-              <Controls showInteractive={false} />
-              {showMiniMap && (
-                <MiniMap
-                  position="bottom-right"
-                  pannable
-                  zoomable
-                  maskColor="rgba(var(--bg-rgb), 0.75)"
-                  nodeColor={(node) => {
-                    const data = (node as EntityNode).data;
-                    if (data.dimmed) return 'var(--surface-2)';
-                    switch (data.kind) {
-                      case 'group': return 'transparent';
-                      case 'scan': return 'var(--accent)';
-                      case 'subnet': return 'var(--pink)';
-                      case 'host': return 'var(--teal)';
-                      case 'port': return stateColor(data.state);
-                      default: return 'var(--dim)';
-                    }
-                  }}
-                />
-              )}
-              {activeHostLabel && (
-                <Panel position="top-left" className="breadcrumb-panel">
-                  <button onClick={goHome}>{t('workspace.backToScan')}</button>
-                  <span>/</span>
-                  <strong>{activeHostLabel}</strong>
-                </Panel>
-              )}
-
-              {cardHosts.length > 0 && (
-                <Panel position="top-right" className="ports-card-panel">
-                  <PortsCard
-                    hosts={cardHosts}
-                    query={query}
-                    openAll={showAllPorts}
-                    onClose={closeCard}
-                    onNotesChange={onNotesChange}
-                    onNotesCommit={onNotesCommit}
+            <div className="graph-canvas">
+              <ReactFlow
+                nodes={view?.nodes ?? []}
+                edges={view?.edges ?? []}
+                onNodesChange={onNodesChange}
+                nodeTypes={nodeTypes}
+                onNodeClick={(_, node) => {
+                  if (node.data.entity.type !== 'host') return;
+                  if (activeHost === node.id) {
+                    closeCard();
+                  } else {
+                    // Abrimos la ficha a la derecha sin mover el mapa: el overview
+                    // sigue donde está y el host se marca como activo.
+                    setShowAllPorts(false);
+                    setActiveHost(node.id);
+                  }
+                }}
+                nodesConnectable={false}
+                nodesDraggable
+                colorMode={theme === 'light' ? 'light' : 'dark'}
+                fitView
+                fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
+                minZoom={0.03}
+                maxZoom={2}
+                proOptions={{ hideAttribution: false }}
+              >
+                <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--surface-2)" />
+                <Controls showInteractive={false} />
+                {showMiniMap && (
+                  <MiniMap
+                    position="bottom-right"
+                    pannable
+                    zoomable
+                    maskColor="rgba(var(--bg-rgb), 0.75)"
+                    nodeColor={(node) => {
+                      const data = (node as EntityNode).data;
+                      if (data.dimmed) return 'var(--surface-2)';
+                      switch (data.kind) {
+                        case 'group': return 'transparent';
+                        case 'scan': return 'var(--accent)';
+                        case 'subnet': return 'var(--pink)';
+                        case 'host': return 'var(--teal)';
+                        case 'port': return stateColor(data.state);
+                        default: return 'var(--dim)';
+                      }
+                    }}
                   />
-                </Panel>
-              )}
-            </ReactFlow>
+                )}
+                {activeHostLabel && (
+                  <Panel position="top-left" className="breadcrumb-panel">
+                    <button onClick={goHome}>{t('workspace.backToScan')}</button>
+                    <span>/</span>
+                    <strong>{activeHostLabel}</strong>
+                  </Panel>
+                )}
+              </ReactFlow>
+            </div>
+            {cardHosts.length > 0 && (
+              <aside className="host-details-pane">
+                <PortsCard
+                  hosts={cardHosts}
+                  query={query}
+                  openAll={showAllPorts}
+                  onClose={closeCard}
+                  onNotesChange={onNotesChange}
+                  onNotesCommit={onNotesCommit}
+                />
+              </aside>
+            )}
           </div>
         )}
       </div>
