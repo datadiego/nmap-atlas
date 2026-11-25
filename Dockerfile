@@ -14,38 +14,32 @@ RUN apt-get update \
     && meson setup build -Duse_maxminddb=disabled -Duse_runtime_linking=disabled \
     && ninja -C build install
 
-FROM node:22-bookworm-slim AS build
+FROM oven/bun:1.4-slim AS build
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN bun run binary
 
-FROM node:22-bookworm-slim
-ENV NODE_ENV=production \
-    NMAP_ATLAS_DB_PATH=/app/data/nmap-atlas.sqlite \
+FROM debian:bookworm-slim
+ENV NMAP_ATLAS_DB_PATH=/app/data/nmap-atlas.sqlite \
     NMAP_ATLAS_NMAP_PRIVILEGED=1 \
     NMAP_ATLAS_GOWITNESS_COMMAND="/usr/local/bin/gowitness --chrome-path=/usr/bin/chromium"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       ca-certificates chromium fonts-liberation libcap2-bin nmap \
+       ca-certificates chromium curl fonts-liberation libcap2-bin nmap \
     && rm -rf /var/lib/apt/lists/* \
     && setcap cap_net_raw,cap_net_admin=eip "$(command -v nmap)"
 
 COPY --from=gowitness /go/bin/gowitness /usr/local/bin/gowitness
 COPY --from=ipcalc /usr/local/bin/ipcalc /usr/local/bin/ipcalc
+COPY --from=build /app/nmap-atlas /app/nmap-atlas
 WORKDIR /app
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY db ./db
-COPY server ./server
-COPY bin ./bin
-COPY package.json ./
-RUN mkdir -p data && chown -R node:node /app
+RUN mkdir -p data && chown -R nobody:nogroup /app
 
-USER node
+USER nobody
 EXPOSE 4173
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
-    CMD node -e "fetch('http://127.0.0.1:4173/api/status').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
-CMD ["node", "bin/nmap-atlas.mjs", "--host", "0.0.0.0", "--port", "4173"]
+    CMD curl -fsS http://127.0.0.1:4173/api/status >/dev/null || exit 1
+CMD ["/app/nmap-atlas", "--host", "0.0.0.0", "--port", "4173"]
